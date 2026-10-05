@@ -1,0 +1,40 @@
+name: Build and publish Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set public app configuration
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ vars.AUTOSNS_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.AUTOSNS_SUPABASE_ANON_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          $version = $env:RELEASE_VERSION.TrimStart('v')
+          $settings = @{
+            supabase_url = $env:SUPABASE_URL
+            supabase_anon_key = $env:SUPABASE_ANON_KEY
+            github_repository = $env:GITHUB_REPOSITORY
+            app_version = $version
+          } | ConvertTo-Json
+          Set-Content -Path cloud_settings.json -Value $settings -Encoding utf8
+      - name: Build EXE
+        run: .\build_windows.bat
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "dist\AutoSNS.exe" --generate-notes

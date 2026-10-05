@@ -1,0 +1,4 @@
+project_id = "autosns"
+
+[functions.generate-comment]
+verify_jwt = true
