@@ -10,7 +10,7 @@ See [BUILD_WINDOWS.md](BUILD_WINDOWS.md). Configure `cloud_settings.json` with t
 
 - Run `supabase/schema.sql` in the Supabase SQL Editor.
 - Deploy `supabase/functions/generate-comment` and store the OpenAI key in Supabase Edge Function Secrets.
-- Add `AUTOSNS_SUPABASE_URL` and `AUTOSNS_SUPABASE_ANON_KEY` as GitHub Actions repository variables.
+- Keep the Supabase Project URL and publishable key in the public `cloud_settings.json` file; never add a service role key there.
 - Push a `vMAJOR.MINOR.PATCH` tag to build and publish a Windows release.
 
 Never put a Supabase service role key or OpenAI API key in the desktop app or `cloud_settings.json`.

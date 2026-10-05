@@ -19,18 +19,12 @@ jobs:
       - name: Set public app configuration
         shell: pwsh
         env:
-          SUPABASE_URL: ${{ vars.AUTOSNS_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ vars.AUTOSNS_SUPABASE_ANON_KEY }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
           $version = $env:RELEASE_VERSION.TrimStart('v')
-          $settings = @{
-            supabase_url = $env:SUPABASE_URL
-            supabase_anon_key = $env:SUPABASE_ANON_KEY
-            github_repository = $env:GITHUB_REPOSITORY
-            app_version = $version
-          } | ConvertTo-Json
+          $settings = Get-Content cloud_settings.json -Raw | ConvertFrom-Json
+          $settings.app_version = $version
+          $settings = $settings | ConvertTo-Json -Depth 5
           Set-Content -Path cloud_settings.json -Value $settings -Encoding utf8
       - name: Build EXE
         run: .\build_windows.bat

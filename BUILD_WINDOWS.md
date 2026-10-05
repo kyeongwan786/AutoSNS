@@ -6,7 +6,7 @@
 2. Supabase의 Project URL과 publishable/anon key를 `cloud_settings.json`에 입력합니다. Service role key는 EXE나 이 파일에 넣지 않습니다.
 3. Supabase CLI로 `supabase functions deploy generate-comment`를 실행합니다. Supabase 대시보드의 Edge Function Secrets에 OpenAI 키를 `OPENAI_API_KEY` 이름으로 등록합니다. `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`는 함수의 기본 환경 변수로 사용합니다.
 4. GitHub에 **공개** 저장소를 만들고 `cloud_settings.json`의 `github_repository`를 `소유자/저장소` 형식으로 설정합니다. 업데이트 확인은 공개 GitHub Releases를 사용합니다.
-5. GitHub 저장소 Variables에 `AUTOSNS_SUPABASE_URL`, `AUTOSNS_SUPABASE_ANON_KEY`를 등록합니다. 이 값들은 클라이언트에 포함되는 공개 설정입니다. Supabase Function Secrets에 보관된 OpenAI 키는 EXE에 포함하지 않습니다.
+5. GitHub Actions는 저장소의 공개 `cloud_settings.json`을 사용합니다. Project URL과 publishable key는 EXE에 포함되는 공개 설정입니다. Supabase Function Secrets에 보관된 OpenAI 키는 EXE에 포함하지 않습니다.
 
 회원가입한 사용자는 Supabase Auth에서 확인한 뒤 `customer_licenses` 테이블에 라이선스 행을 추가합니다. 예시:
 

@@ -1,6 +1,6 @@
 {
-  "supabase_url": "https://YOUR_PROJECT.supabase.co",
-  "supabase_anon_key": "REPLACE_WITH_SUPABASE_PUBLISHABLE_KEY",
+  "supabase_url": "https://rlytnnzgmgdgkzntobgk.supabase.co",
+  "supabase_anon_key": "sb_publishable_HX_JGz4aQ3EtMgRCdHfIYQ_ITjJjGPU",
   "github_repository": "kyeongwan786/AutoSNS",
   "app_version": "0.2.0"
 }
