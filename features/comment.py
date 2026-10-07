@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from playwright.async_api import Page
 
+from core.cloud import CloudQuotaError
 from core.llm import make_comment
 from core.post import Post
-from core.utils import DialogCatcher, assert_logged_in, human_wait, typing_delay
+from core.utils import DialogCatcher, assert_logged_in, human_type, human_wait
 
 NAME = "comment"
 LABEL = "💬 댓글"
@@ -51,6 +52,8 @@ async def run(page: Page, post: Post, cfg: dict, dialogs: DialogCatcher) -> tupl
 
     try:
         text = await make_comment(cfg, post.title, post.body)
+    except CloudQuotaError as e:
+        return "limit", str(e)
     except Exception as e:
         return "error", f"LLM 호출 실패 ({str(e)[:80]})"
     if not text:
@@ -67,8 +70,9 @@ async def run(page: Page, post: Post, cfg: dict, dialogs: DialogCatcher) -> tupl
         return "skipped", "댓글창 없음 (댓글 막힌 글이거나 화면 구조 다름)"
 
     dialogs.clear()
-    # 포커스된 입력창에 키보드로 입력 (클릭 재시도 없음)
-    await page.keyboard.type(text, delay=typing_delay())
+    # 포커스된 입력창에 사람처럼 입력 (클릭 재시도 없음)
+    await human_wait(200, 600)
+    await human_type(page, text)
     await human_wait(800, 1800)
     assert_logged_in(page)
 

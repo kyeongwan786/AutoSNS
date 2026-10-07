@@ -46,6 +46,9 @@ DEFAULTS = {
         "cdp_port": 9222,
         "show_browser": False,          # True면 작업 중 브라우저 창 보이기
         "use_chrome": False,            # playwright 모드에서만: 설치된 크롬 사용
+        "task_speed": "medium",         # 작업 속도 기본값
+        "daily_limit_mode": "shared",   # shared = 통합 한도, individual = 기능별 한도
+        "daily_task_limit": 100,         # 세 자동화 기능의 하루 통합 완료 한도
         "delay_range": [40, 120],       # 대상 사이 대기 (초)
         "break_every": [8, 12],         # 이 범위의 대상 수마다
         "break_range": [300, 600],      # 긴 휴식 (초)
@@ -72,6 +75,9 @@ DEFAULTS = {
     "like": {
         "enabled": True,
         "daily_limit": 100,
+    },
+    "publish": {
+        "enabled": False,             # UI preference; publishing automation is not implemented yet
     },
     "comment": {
         "enabled": True,

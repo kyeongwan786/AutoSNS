@@ -18,6 +18,11 @@ class CloudError(RuntimeError):
     pass
 
 
+class CloudQuotaError(CloudError):
+    """The cloud-side daily comment allowance is exhausted."""
+    pass
+
+
 _ACCESS_TOKEN = os.environ.get("AUTOSNS_SUPABASE_ACCESS_TOKEN", "")
 _REFRESH_TOKEN = os.environ.get("AUTOSNS_SUPABASE_REFRESH_TOKEN", "")
 
@@ -58,6 +63,8 @@ def _request(url: str, method: str = "GET", payload: dict | None = None,
             message = error.get("msg") or error.get("message") or error.get("error_description") or error.get("error")
         except Exception:
             message = "요청이 거부되었습니다. 설정과 계정을 확인하세요."
+        if exc.code == 429:
+            raise CloudQuotaError("오늘 댓글 생성 한도에 도달했어요.") from None
         raise CloudError(str(message or "클라우드 요청이 실패했습니다.")) from None
     except (OSError, TimeoutError) as exc:
         raise CloudError("클라우드 서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요.") from exc
@@ -65,8 +72,15 @@ def _request(url: str, method: str = "GET", payload: dict | None = None,
 
 def signup(email: str, password: str) -> dict:
     cfg = settings()
-    return _request(f"{cfg['supabase_url'].rstrip('/')}/auth/v1/signup", "POST",
-                    {"email": email, "password": password})
+    url = f"{cfg['supabase_url'].rstrip('/')}/auth/v1/signup?{urllib.parse.urlencode({'redirect_to': 'http://127.0.0.1:8765/email-verified'})}"
+    return _request(url, "POST", {"email": email, "password": password})
+
+
+def resend_signup_confirmation(email: str) -> dict:
+    cfg = settings()
+    redirect = urllib.parse.urlencode({"redirect_to": "http://127.0.0.1:8765/email-verified"})
+    return _request(f"{cfg['supabase_url'].rstrip('/')}/auth/v1/resend?{redirect}", "POST",
+                    {"type": "signup", "email": email})
 
 
 def login(email: str, password: str) -> dict:
@@ -78,27 +92,43 @@ def login(email: str, password: str) -> dict:
     user = session.get("user") or {}
     if not access_token or not user.get("id"):
         raise CloudError("로그인 응답이 올바르지 않습니다.")
-    check_license(access_token, user["id"])
+    daily_comment_limit = check_license(access_token, user["id"])
     return {"access_token": access_token, "refresh_token": session.get("refresh_token", ""),
-            "email": user.get("email", email), "user_id": user["id"]}
+            "email": user.get("email", email), "user_id": user["id"],
+            "daily_comment_limit": daily_comment_limit}
 
 
-def check_license(access_token: str, user_id: str) -> None:
+def get_user(access_token: str) -> dict:
+    """Fetch the current user record from Supabase Auth, not from cached session data."""
+    cfg = settings()
+    user = _request(f"{cfg['supabase_url'].rstrip('/')}/auth/v1/user", access_token=access_token)
+    if not isinstance(user, dict) or not user.get("id"):
+        raise CloudError("로그인 정보를 다시 확인해 주세요.")
+    return user
+
+
+def check_license(access_token: str, user_id: str) -> int:
     cfg = settings()
     license_url = (f"{cfg['supabase_url'].rstrip('/')}/rest/v1/customer_licenses"
-                   f"?select=status,expires_at&user_id=eq.{urllib.parse.quote(user_id)}")
+                   f"?select=status,expires_at,daily_comment_limit&user_id=eq.{urllib.parse.quote(user_id)}")
     rows = _request(license_url, access_token=access_token)
     license_row = rows[0] if rows else None
-    if not license_row or license_row.get("status") != "active":
-        raise CloudError("계정이 등록되었지만 사용 권한이 활성화되지 않았습니다. 관리자에게 문의하세요.")
+    if not license_row or license_row.get("status") == "pending":
+        raise CloudError("계정 정보를 불러오지 못했어요. 잠시 후 다시 로그인해 주세요.")
+    if license_row.get("status") != "active":
+        raise CloudError("현재 이 계정으로 로그인할 수 없어요.")
     expires = license_row.get("expires_at")
     if expires:
         try:
             expiration = datetime.fromisoformat(expires.replace("Z", "+00:00"))
         except ValueError:
-            raise CloudError("계정 사용 권한의 만료 날짜를 확인할 수 없습니다.") from None
+            raise CloudError("계정 정보를 확인하는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.") from None
         if expiration <= datetime.now(timezone.utc):
-            raise CloudError("사용 권한이 만료되었습니다. 관리자에게 문의하세요.")
+            raise CloudError("이 계정의 이용 기간이 끝났어요.")
+    try:
+        return max(0, int(license_row.get("daily_comment_limit", 100)))
+    except (TypeError, ValueError):
+        raise CloudError("계정의 댓글 사용 한도를 확인하지 못했어요.") from None
 
 
 def logout(access_token: str) -> None:
@@ -142,6 +172,25 @@ def generate_comment(prompt: str, title: str, body: str,
     if not text or "SKIP" in text.upper():
         return None
     return text.splitlines()[0][:150]
+
+
+def generate_post_topics(trend_data: dict, context_keywords: list[str],
+                         access_token: str | None = None) -> dict:
+    """Rank per-keyword Naver research using the hosted GPT-4o mini service."""
+    cfg = settings()
+    result = _request(
+        f"{cfg['supabase_url'].rstrip('/')}/functions/v1/generate-post-topics",
+        "POST",
+        {"trend_data": trend_data, "context_keywords": context_keywords[:10]},
+        access_token or current_access_token(),
+    )
+    recommendations = result.get("recommendations", [])
+    evidence_count = result.get("search_evidence_count", 0)
+    return {
+        "recommendations": recommendations if isinstance(recommendations, list) else [],
+        "search_grounded": bool(result.get("search_grounded", False)),
+        "search_evidence_count": evidence_count if isinstance(evidence_count, int) and evidence_count > 0 else 0,
+    }
 
 
 def check_update() -> dict:

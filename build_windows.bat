@@ -10,6 +10,14 @@ if not exist "dashboard.html" (
     echo dashboard.html was not found. Copy it into the project folder.
     goto failed
 )
+if not exist "autosns-mark.svg" (
+    echo autosns-mark.svg was not found. Copy it into the project folder.
+    goto failed
+)
+if not exist "assets\sidebar-icons\dashboard.png" (
+    echo Sidebar icon assets were not found. Copy the assets folder into the project.
+    goto failed
+)
 if not exist "autosns_icon.png" (
     echo autosns_icon.png was not found. Copy the app icon into the project folder.
     goto failed
@@ -51,7 +59,7 @@ if not exist ".venv-build\Scripts\python.exe" (
 call ".venv-build\Scripts\activate.bat"
 python -m pip install --upgrade pip
 if errorlevel 1 goto failed
-python -m pip install "playwright>=1.50,<2" "openai>=1.50,<4" "pyinstaller>=6.10,<7" "Pillow>=10,<13"
+python -m pip install "playwright>=1.50,<2" "openai>=1.50,<4" "pyinstaller>=6.10,<7" "Pillow>=10,<13" "keyring>=25,<27"
 if errorlevel 1 goto failed
 
 python validate_cloud_settings.py
@@ -66,9 +74,12 @@ python -m PyInstaller --noconfirm --clean --onefile --console ^
   --name AutoSNS ^
   --icon autosns_icon.ico ^
   --add-data "dashboard.html;." ^
+  --add-data "autosns-mark.svg;." ^
+  --add-data "assets\sidebar-icons;assets\sidebar-icons" ^
   --add-data "cloud_settings.json;." ^
   --collect-all playwright ^
   --collect-all openai ^
+  --collect-all keyring ^
   main.py
 if errorlevel 1 goto failed
 

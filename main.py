@@ -24,9 +24,9 @@ from core.config import load_config
 from core.llm import resolve_api_key
 from core.post import open_post
 from core.session import (
-    LoginCompletedError, backup_cookies, close_naver, forget_cookies, open_naver,
+    LoginCompletedError, NaverCredentialError, backup_cookies, close_naver, forget_cookies, open_naver,
 )
-from core.storage import Store, add_today, today_count
+from core.storage import Store, add_today, today_count, today_total
 from core.utils import DialogCatcher, LoggedOutError, human_wait, set_speed
 from features import buddy, comment, discover, like
 
@@ -41,6 +41,7 @@ class Runner:
         self.store = store
         self.dialogs = DialogCatcher(page)
         self.stopped: set[str] = set()     # 네이버 한도에 걸린 기능
+        self.global_stopped = False        # 계정 전체 작업을 중단하는 플랫폼 제한
         self.since_break = 0
         self.next_break = random.randint(*cfg["general"]["break_every"])
 
@@ -49,9 +50,13 @@ class Runner:
         return [f for f in ORDER if self.cfg[f]["enabled"]]
 
     def active(self, f: str) -> bool:
-        return (self.cfg[f]["enabled"]
+        individual = self.cfg["general"].get("daily_limit_mode") == "individual"
+        within_limit = (today_count(f) < self.cfg[f]["daily_limit"] if individual else
+                        today_total() < self.cfg["general"]["daily_task_limit"])
+        return (not self.global_stopped
+                and self.cfg[f]["enabled"]
                 and f not in self.stopped
-                and today_count(f) < self.cfg[f]["daily_limit"])
+                and within_limit)
 
     def any_active(self) -> bool:
         return any(self.active(f) for f in ORDER)
@@ -61,6 +66,11 @@ class Runner:
 
     # ---------- 결과 기록 ----------
     def record(self, blog_id: str, f: str, status: str, detail: str) -> bool:
+        if status == "global_limit":
+            self.global_stopped = True
+            self.store.mark(blog_id, f, "limit", detail)
+            print(f"    네이버 계정 제한 알림 감지: 모든 자동 작업을 중지합니다 ({detail})")
+            return False
         if status == "limit":
             self.stopped.add(f)
             print(f"    {FEATURES[f].LABEL}: 네이버 한도 도달, 오늘은 이 기능 중지 ({detail})")
@@ -68,7 +78,13 @@ class Runner:
         self.store.mark(blog_id, f, status, detail)
         if status == "done":
             add_today(f)
-        count = f"(오늘 {today_count(f)}/{self.cfg[f]['daily_limit']})" if status == "done" else ""
+        if status == "done":
+            if self.cfg["general"].get("daily_limit_mode") == "individual":
+                count = f"(오늘 {today_count(f)}/{self.cfg[f]['daily_limit']})"
+            else:
+                count = f"(오늘 전체 {today_total()}/{self.cfg['general']['daily_task_limit']})"
+        else:
+            count = ""
         print(f"    {FEATURES[f].LABEL}: {status} {detail} {count}")
         return status == "done"
 
@@ -80,7 +96,7 @@ class Runner:
             return False
         acted = False
 
-        if "like" in todo or "comment" in todo:
+        if ("like" in todo and self.active("like")) or ("comment" in todo and self.active("comment")):
             post = None
             try:
                 post = await open_post(self.page, blog_id, self.store.targets[blog_id].get("post", ""))
@@ -94,7 +110,7 @@ class Runner:
                     if f in todo:
                         self.record(blog_id, f, "skipped", "글을 열 수 없음")
             else:
-                if "like" in todo:
+                if "like" in todo and self.active("like"):
                     try:
                         st, d = await like.run(self.page)
                     except LoggedOutError:
@@ -103,7 +119,7 @@ class Runner:
                         st, d = "error", str(e)[:150]
                     acted |= self.record(blog_id, "like", st, d)
 
-                if "comment" in todo:
+                if "comment" in todo and self.active("comment"):
                     try:
                         st, d = await comment.run(self.page, post, self.cfg["comment"], self.dialogs)
                     except LoggedOutError:
@@ -113,7 +129,7 @@ class Runner:
                     acted |= self.record(blog_id, "comment", st, d)
                 await human_wait(1500, 3000)
 
-        if "buddy" in todo:
+        if "buddy" in todo and self.active("buddy"):
             try:
                 st, d = await buddy.run(self.page, blog_id, self.cfg["buddy"], self.dialogs)
             except LoggedOutError:
@@ -132,14 +148,14 @@ class Runner:
         self.since_break += 1
         if self.since_break >= self.next_break:
             sec = random.randint(*g["break_range"])
-            print(f"  ☕ {sec // 60}분 휴식")
+            print(f"  ☕ {max(1, round(sec / 60))}분 휴식")
             await asyncio.sleep(sec)
             self.since_break = 0
             self.next_break = random.randint(*g["break_every"])
         else:
             sec = random.randint(*g["delay_range"])
             if sec > 0:
-                print(f"  ⏳ {sec}초 대기")
+                print(f"  ⏳ {max(1, round(sec))}초 대기")
                 await asyncio.sleep(sec)
 
     async def run_ids(self, blog_ids: list[str]) -> None:
@@ -150,6 +166,8 @@ class Runner:
                 continue
             print(f"  [{i}/{len(blog_ids)}] {blog_id}")
             acted = await self.process(blog_id)
+            if self.global_stopped or not self.any_active():
+                return
             await self.rest(acted)
 
     # ---------- 전체 흐름 ----------
@@ -178,15 +196,32 @@ class Runner:
 
 def print_status(cfg: dict) -> None:
     print("\n=== 작업 설정 ===")
+    individual = cfg["general"].get("daily_limit_mode") == "individual"
     for f in ORDER:
         mod = FEATURES[f]
         on = "ON " if cfg[f]["enabled"] else "OFF"
-        print(f"  {mod.LABEL:<8} [{on}]  오늘 {today_count(f)}/{cfg[f]['daily_limit']}")
+        limit = f"/{cfg[f]['daily_limit']}" if individual else "회 완료"
+        print(f"  {mod.LABEL:<8} [{on}]  오늘 {today_count(f)}{limit}")
+    if individual:
+        print("  한도 방식: 기능별 개별 설정")
+    else:
+        print(f"  하루 전체 한도: {today_total()}/{cfg['general']['daily_task_limit']}회")
     print()
 
 
 async def main(test_count: int | None) -> None:
     cfg = load_config()
+    speed_profiles = {
+        "min": {"factor": 1.0, "delay_range": [40, 120], "break_every": [8, 12],
+                "break_range": [300, 600], "skip_delay_range": [5, 15]},
+        "medium": {"factor": 0.7, "delay_range": [20, 60], "break_every": [12, 18],
+                   "break_range": [180, 360], "skip_delay_range": [3, 8]},
+        "max": {"factor": 0.45, "delay_range": [8, 25], "break_every": [18, 25],
+                "break_range": [90, 180], "skip_delay_range": [1, 4]},
+    }
+    profile = speed_profiles.get(cfg["general"].get("task_speed"), speed_profiles["medium"])
+    cfg["general"].update({key: value for key, value in profile.items() if key != "factor"})
+    set_speed(profile["factor"])
 
     if test_count is not None:
         cfg["general"].update({
@@ -240,15 +275,22 @@ async def main(test_count: int | None) -> None:
     print_status(cfg)
 
 
-async def login_only() -> None:
+async def login_only(credentials: dict | None = None) -> None:
     """Prepare and save the Naver login without starting automation."""
     cfg = load_config()
     async with async_playwright() as p:
         try:
-            context, _page = await open_naver(p, cfg["general"])
+            context, _page = await open_naver(p, cfg["general"], stop_after_login=True, credentials=credentials)
             await backup_cookies(context)
+        except LoginCompletedError:
+            # The CDP flow saved the account cookies, closed its verification
+            # browser and signals completion through this exception.
+            pass
         finally:
             await close_naver()
+            if credentials is not None:
+                credentials["username"] = ""
+                credentials["password"] = ""
     print("✅ 네이버 로그인 준비 완료. 작업은 대시보드에서 '작업 시작'을 눌러주세요.")
 
 
@@ -257,10 +299,24 @@ if __name__ == "__main__":
     parser.add_argument("--test", type=int, metavar="N", help="테스트 모드: 새 대상 N명만 처리")
     parser.add_argument("--ui", action="store_true", help="웹 UI 실행")
     parser.add_argument("--login-only", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--login-only-credentials", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--automation-child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.login_only:
-        asyncio.run(login_only())
+        credentials = None
+        if args.login_only_credentials:
+            try:
+                import json
+                credentials = json.loads(sys.stdin.readline())
+                if not isinstance(credentials, dict):
+                    credentials = None
+            except Exception:
+                credentials = None
+        try:
+            asyncio.run(login_only(credentials))
+        except NaverCredentialError:
+            print("네이버 아이디 또는 비밀번호가 맞지 않습니다.")
+            raise SystemExit(2)
     elif args.automation_child or args.test is not None:
         asyncio.run(main(args.test))
     elif args.ui or getattr(sys, "frozen", False):

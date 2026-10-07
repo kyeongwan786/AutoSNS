@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="AutoSNS">
+  <defs>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#21b978"/>
+      <stop offset="1" stop-color="#83e5a2"/>
+    </linearGradient>
+  </defs>
+  <path d="M17 77 44 23a22 22 0 0 1 40 0l27 54a17 17 0 0 1-30 15L64 57 47 92a17 17 0 0 1-30-15Z" fill="url(#mint)"/>
+  <ellipse cx="52" cy="78" rx="4.5" ry="7" fill="#17332b"/>
+  <ellipse cx="76" cy="78" rx="4.5" ry="7" fill="#17332b"/>
+  <path d="M57 91q7 8 14 0" fill="none" stroke="#17332b" stroke-linecap="round" stroke-width="4"/>
+  <circle cx="42" cy="94" r="4" fill="#bdf3d0"/>
+  <circle cx="86" cy="94" r="4" fill="#bdf3d0"/>
+</svg>

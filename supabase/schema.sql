@@ -1,5 +1,5 @@
--- Run this once in Supabase SQL Editor. New signups stay pending until an
--- administrator inserts an active row into customer_licenses.
+-- Run this in Supabase SQL Editor. New accounts receive an active license
+-- automatically, and existing pending accounts are activated by the backfill.
 create table if not exists public.customer_licenses (
   user_id uuid primary key references auth.users(id) on delete cascade,
   status text not null default 'pending'
@@ -16,6 +16,34 @@ grant select on public.customer_licenses to authenticated;
 drop policy if exists "users read own license" on public.customer_licenses;
 create policy "users read own license" on public.customer_licenses
   for select to authenticated using (auth.uid() = user_id);
+
+create or replace function public.activate_new_user_license()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.customer_licenses (user_id, status)
+  values (new.id, 'active')
+  on conflict (user_id) do update
+    set status = 'active', expires_at = null
+    where public.customer_licenses.status = 'pending';
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_activate_license on auth.users;
+create trigger on_auth_user_created_activate_license
+  after insert on auth.users
+  for each row execute function public.activate_new_user_license();
+
+-- Activate users who signed up before automatic activation was added.
+insert into public.customer_licenses (user_id, status)
+select id, 'active' from auth.users
+on conflict (user_id) do update
+  set status = 'active', expires_at = null
+  where public.customer_licenses.status = 'pending';
 
 create table if not exists public.comment_usage (
   user_id uuid not null references auth.users(id) on delete cascade,

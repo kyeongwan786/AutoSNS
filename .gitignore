@@ -1,6 +1,9 @@
 naver_profile/
 chrome_profile/
 naver_cookies.json
+.naver_credentials.json
+sns_accounts/
+sns_account_lists/
 config.json
 targets.json
 daily_count.json

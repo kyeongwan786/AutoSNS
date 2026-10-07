@@ -14,6 +14,8 @@ targets.json 구조:
 """
 from __future__ import annotations
 import json
+import os
+import re
 from datetime import date, datetime
 from pathlib import Path
 
@@ -24,6 +26,17 @@ DAILY_FILE = BASE_DIR / "daily_count.json"
 ACTIVITY_FILE = BASE_DIR / "activity_log.json"
 
 FINAL = {"done", "skipped"}
+
+def account_data_dir(account_id: str | None = None) -> Path:
+    account_id = account_id if account_id is not None else os.environ.get("AUTOSNS_ACCOUNT_ID", "")
+    if account_id and re.fullmatch(r"[0-9a-f]{32}", account_id):
+        path = BASE_DIR / "sns_accounts" / account_id
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    return BASE_DIR
+
+def data_file(filename: str, account_id: str | None = None) -> Path:
+    return account_data_dir(account_id) / filename
 
 
 def load_json(path: Path, default):
@@ -38,7 +51,8 @@ def save_json(path: Path, data) -> None:
 
 def add_activity(blog_id: str, feature: str, status: str, detail: str = "") -> None:
     """Append one real automation result for the UI's activity history."""
-    rows = load_json(ACTIVITY_FILE, [])
+    activity_file = data_file("activity_log.json")
+    rows = load_json(activity_file, [])
     rows.append({
         "at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "blog_id": blog_id,
@@ -46,14 +60,17 @@ def add_activity(blog_id: str, feature: str, status: str, detail: str = "") -> N
         "status": status,
         "detail": detail,
     })
-    save_json(ACTIVITY_FILE, rows[-5000:])
+    save_json(activity_file, rows[-5000:])
 
 
 # ---------------- 대상 목록 ----------------
 
 class Store:
     def __init__(self):
-        self.targets: dict = self._migrate(load_json(TARGETS_FILE, {}))
+        self.targets_file = data_file("targets.json")
+        self.daily_file = data_file("daily_count.json")
+        self.activity_file = data_file("activity_log.json")
+        self.targets: dict = self._migrate(load_json(self.targets_file, {}))
         self.save()
 
     @staticmethod
@@ -70,7 +87,7 @@ class Store:
         return targets
 
     def save(self) -> None:
-        save_json(TARGETS_FILE, self.targets)
+        save_json(self.targets_file, self.targets)
 
     def add(self, blog_id: str, post_url: str) -> bool:
         if blog_id in self.targets:
@@ -94,7 +111,8 @@ class Store:
 # ---------------- 일일 카운트 ----------------
 
 def _daily() -> dict:
-    data = load_json(DAILY_FILE, {})
+    daily_file = data_file("daily_count.json")
+    data = load_json(daily_file, {})
     # 예전 형식 {날짜: 숫자} → {날짜: {"buddy": 숫자}}
     for k, v in list(data.items()):
         if isinstance(v, int):
@@ -106,8 +124,13 @@ def today_count(feature: str) -> int:
     return _daily().get(str(date.today()), {}).get(feature, 0)
 
 
+def today_total() -> int:
+    counts = _daily().get(str(date.today()), {})
+    return sum(int(count) for count in counts.values() if isinstance(count, int) and count > 0)
+
+
 def add_today(feature: str) -> None:
     data = _daily()
     day = data.setdefault(str(date.today()), {})
     day[feature] = day.get(feature, 0) + 1
-    save_json(DAILY_FILE, data)
+    save_json(data_file("daily_count.json"), data)

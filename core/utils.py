@@ -10,7 +10,7 @@ POST_RE = re.compile(r"blog\.naver\.com/([A-Za-z0-9_-]+)/(\d+)")
 BLOGID_RE = re.compile(r"[?&]blogId=([A-Za-z0-9_-]+)")
 
 
-# 동작 속도 배율 (1.0 = 기본, 0.3 = 대기 시간 30%로 단축). 테스트 모드에서 줄임
+# 동작 속도 배율 (1.0 = 기본, 0.15 = 대기 시간 15%로 단축). 테스트 모드에서 줄임
 _speed = 1.0
 
 
@@ -24,13 +24,27 @@ async def human_wait(lo_ms: int = 800, hi_ms: int = 2000) -> None:
 
 
 def typing_delay() -> int:
-    """글자 사이 간격 (ms)"""
+    """(예전 코드 호환용) 글자 사이 간격 (ms)"""
     return max(5, int(random.randint(40, 110) * _speed))
+
+
+async def human_type(page: Page, text: str) -> None:
+    """현재 포커스된 입력창에 사람처럼 한 글자씩 입력.
+    글자마다 간격이 다르고, 띄어쓰기/문장부호 뒤엔 살짝 더 쉬고, 가끔 생각하듯 멈춤."""
+    for ch in text:
+        await page.keyboard.type(ch)
+        ms = random.uniform(45, 170)                 # 기본 글자 간격
+        if ch in " ,.!?~":
+            ms += random.uniform(40, 220)            # 띄어쓰기, 문장부호 뒤
+        if random.random() < 0.06:
+            ms += random.uniform(300, 1100)          # 가끔 멈칫
+        await asyncio.sleep(ms / 1000 * _speed)
 
 
 async def type_like_human(locator, text: str) -> None:
     await locator.click()
-    await locator.press_sequentially(text, delay=typing_delay())
+    await human_wait(200, 600)
+    await human_type(locator.page, text)
 
 
 class LoggedOutError(Exception):

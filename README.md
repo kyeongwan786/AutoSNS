@@ -1,6 +1,6 @@
 # AutoSNS
 
-Windows desktop app for Naver Blog automation, with a local dashboard and Supabase-backed accounts and licenses.
+Windows desktop app for Naver Blog automation, with a local dashboard and Supabase-backed accounts. New accounts receive usage access automatically after signup verification.
 
 ## Build
 
@@ -9,7 +9,7 @@ See [BUILD_WINDOWS.md](BUILD_WINDOWS.md). Configure `cloud_settings.json` with t
 ## Cloud services
 
 - Run `supabase/schema.sql` in the Supabase SQL Editor.
-- Deploy `supabase/functions/generate-comment` and store the OpenAI key in Supabase Edge Function Secrets.
+- Deploy `supabase/functions/generate-comment` and `supabase/functions/generate-post-topics`, then store the OpenAI key in Supabase Edge Function Secrets.
 - Keep the Supabase Project URL and publishable key in the public `cloud_settings.json` file; never add a service role key there.
 - Push a `vMAJOR.MINOR.PATCH` tag to build and publish a Windows release.
 

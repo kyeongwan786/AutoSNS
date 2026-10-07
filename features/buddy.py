@@ -17,7 +17,7 @@ SEL_BOTH_LABEL = "label[for='bothBuddyRadio']"
 SEL_MESSAGE = "textarea"
 SEL_CONFIRM = "button:has-text('확인'), a:has-text('확인')"
 
-LIMIT_PATTERN = re.compile(r"(하루|일일|오늘).*(초과|제한|더 이상)|더 이상 신청")
+LIMIT_PATTERN = re.compile(r"더 이상 이웃|추가할 수 없|이웃수를 제한|1일\s*동안|(하루|일일|오늘).*(초과|제한|더 이상)|더 이상 신청")
 SKIP_PATTERN = re.compile(r"이미|본인|자신|받지 않|불가|없는 블로그")
 
 _last_message: str | None = None
@@ -39,14 +39,15 @@ def _classify(text: str, default: str) -> str:
 
 
 async def run(page: Page, blog_id: str, cfg: dict, dialogs: DialogCatcher) -> tuple[str, str]:
-    """반환: (status, detail)  status = done | skipped | limit | error"""
+    """반환: (status, detail)  status = done | skipped | global_limit | error"""
     dialogs.clear()
     await page.goto(ADD_URL.format(blog_id=blog_id), wait_until="domcontentloaded")
     await human_wait(1500, 3000)
     assert_logged_in(page)
 
     if dialogs.last:  # 이미 이웃, 본인 블로그 등
-        return _classify(dialogs.last, "skipped"), dialogs.last
+        status = _classify(dialogs.last, "skipped")
+        return ("global_limit" if status == "limit" else status), dialogs.last
 
     radio = page.locator(SEL_BOTH_RADIO)
     if await radio.count() == 0:
@@ -71,5 +72,7 @@ async def run(page: Page, blog_id: str, cfg: dict, dialogs: DialogCatcher) -> tu
 
     if dialogs.last:
         status = _classify(dialogs.last, "done")
+        if status == "limit":
+            return "global_limit", dialogs.last
         return status, dialogs.last if status != "done" else message
     return "done", message

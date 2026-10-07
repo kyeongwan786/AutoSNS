@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>AutoSNS 이메일 인증</title>
+    <style>
+      @media screen and (max-width: 600px) {
+        .email-card {
+          width: 100% !important;
+        }
+        .content {
+          padding: 30px 22px !important;
+        }
+        .outer {
+          padding: 22px 12px !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background: #f3f8f5;
+      font-family:
+        -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;,
+        &quot;Malgun Gothic&quot;, Arial, sans-serif;
+      color: #1d3026;
+    "
+  >
+    <div
+      style="
+        display: none;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        color: transparent;
+      "
+    >
+      AutoSNS 이메일 인증을 완료해 주세요.
+    </div>
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      border="0"
+      style="background: #f3f8f5"
+    >
+      <tr>
+        <td class="outer" align="center" style="padding: 48px 16px">
+          <table
+            class="email-card"
+            role="presentation"
+            width="520"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="
+              width: 520px;
+              max-width: 520px;
+              background: #ffffff;
+              border: 1px solid #e3eee7;
+              border-radius: 20px;
+              overflow: hidden;
+              box-shadow: 0 12px 36px rgba(22, 67, 42, 0.08);
+            "
+          >
+            <tr>
+              <td
+                style="
+                  height: 7px;
+                  background: #20ae68;
+                  font-size: 0;
+                  line-height: 0;
+                "
+              >
+                &nbsp;
+              </td>
+            </tr>
+            <tr>
+              <td class="content" style="padding: 38px 42px 34px">
+                <table
+                  role="presentation"
+                  cellspacing="0"
+                  cellpadding="0"
+                  border="0"
+                >
+                  <tr>
+                    <td
+                      width="42"
+                      height="42"
+                      align="center"
+                      valign="middle"
+                      style="
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 13px;
+                        background: #e8f7ee;
+                        color: #16834c;
+                        font-size: 20px;
+                        font-weight: 800;
+                      "
+                    >
+                      A
+                    </td>
+                    <td
+                      style="
+                        padding-left: 11px;
+                        color: #20382b;
+                        font-size: 18px;
+                        font-weight: 800;
+                        letter-spacing: -0.4px;
+                      "
+                    >
+                      AutoSNS
+                    </td>
+                  </tr>
+                </table>
+
+                <h1
+                  style="
+                    margin: 38px 0 10px;
+                    color: #1d3026;
+                    font-size: 26px;
+                    line-height: 1.35;
+                    letter-spacing: -1px;
+                  "
+                >
+                  이메일 인증
+                </h1>
+                <p
+                  style="
+                    margin: 0;
+                    color: #718078;
+                    font-size: 14px;
+                    line-height: 1.8;
+                    word-break: keep-all;
+                  "
+                >
+                  가입을 마치려면 이메일을 인증해 주세요.
+                </p>
+
+                <table
+                  role="presentation"
+                  align="center"
+                  cellspacing="0"
+                  cellpadding="0"
+                  border="0"
+                  style="margin: 26px auto 0"
+                >
+                  <tr>
+                    <td
+                      align="center"
+                      style="
+                        border-radius: 11px;
+                        background: #19a761;
+                        box-shadow: 0 6px 14px rgba(25, 167, 97, 0.2);
+                      "
+                    >
+                      <a
+                        href="{{ .ConfirmationURL }}"
+                        style="
+                          display: inline-block;
+                          padding: 15px 28px;
+                          border: 1px solid #19a761;
+                          border-radius: 11px;
+                          color: #ffffff;
+                          font-size: 14px;
+                          font-weight: 750;
+                          text-decoration: none;
+                        "
+                        >이메일 인증하고 시작하기</a
+                      >
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  style="
+                    margin: 22px 0 0;
+                    color: #718078;
+                    font-size: 12px;
+                    line-height: 1.7;
+                    text-align: center;
+                  "
+                >
+                  인증 후 AutoSNS로 돌아와 로그인해 주세요.
+                </p>
+                <p
+                  style="
+                    margin: 24px 0 6px;
+                    color: #8a968e;
+                    font-size: 11px;
+                    line-height: 1.6;
+                  "
+                >
+                  버튼이 작동하지 않으면 아래 링크를 눌러 주세요.
+                </p>
+                <p
+                  style="
+                    margin: 0;
+                    color: #168653;
+                    font-size: 10px;
+                    line-height: 1.6;
+                    word-break: break-all;
+                  "
+                >
+                  <a
+                    href="{{ .ConfirmationURL }}"
+                    style="color: #168653; text-decoration: underline"
+                    >{{ .ConfirmationURL }}</a
+                  >
+                </p>
+
+                <hr
+                  style="
+                    height: 1px;
+                    margin: 28px 0 17px;
+                    border: 0;
+                    background: #edf1ee;
+                  "
+                />
+                <p
+                  style="
+                    margin: 0;
+                    color: #99a39d;
+                    font-size: 11px;
+                    line-height: 1.7;
+                    word-break: keep-all;
+                  "
+                >
+                  가입한 적이 없다면 이 메일은 무시해 주세요.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
