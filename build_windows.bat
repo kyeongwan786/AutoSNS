@@ -85,12 +85,14 @@ if errorlevel 1 goto failed
 
 echo.
 echo Build complete: dist\AutoSNS.exe
-echo You can distribute this single EXE file.
+echo Package it with installer\AutoSNS.iss to create the user installer.
+if defined CI exit /b 0
 pause
 exit /b 0
 
 :failed
 echo.
 echo Build failed. Review the error above.
+if defined CI exit /b 1
 pause
 exit /b 1

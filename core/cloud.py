@@ -3,13 +3,17 @@ from __future__ import annotations
 
 import json
 import base64
+import hashlib
 import os
 import re
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from functools import lru_cache
+from pathlib import Path
+from urllib.parse import urlparse
 
 from core.config import RESOURCE_DIR
 
@@ -213,10 +217,97 @@ def check_update() -> dict:
 
     current = str(cfg.get("app_version", "0.0.0"))
     latest = str(release.get("tag_name", "")).lstrip("vV")
-    version = lambda value: tuple(int(part) for part in re.findall(r"\d+", value)[:4])
+    version_pattern = re.compile(r"^\d+(?:\.\d+){0,3}$")
+    def version(value: str) -> tuple[int, int, int, int]:
+        if not version_pattern.fullmatch(value):
+            return (0, 0, 0, 0)
+        parts = [int(part) for part in value.split(".")]
+        return tuple((parts + [0, 0, 0, 0])[:4])
+
+    if not version_pattern.fullmatch(current) or not version_pattern.fullmatch(latest):
+        return {"configured": True, "available": False, "error": "버전 정보를 확인하지 못했습니다."}
     assets = release.get("assets") or []
-    exe = next((item.get("browser_download_url") for item in assets
-                if str(item.get("name", "")).lower().endswith(".exe")), None)
-    return {"configured": True, "available": bool(latest and version(latest) > version(current)),
-            "current": current, "latest": latest,
-            "url": exe or release.get("html_url", "")}
+    if not isinstance(assets, list):
+        return {"configured": True, "available": False, "error": "업데이트 파일 목록을 확인하지 못했습니다."}
+    installer_name = f"AutoSNS-Setup-{latest}.exe"
+    installer = next((item for item in assets if item.get("name") == installer_name), None)
+    manifest_asset = next((item for item in assets if item.get("name") == "AutoSNS-update.json"), None)
+    if not installer or not manifest_asset:
+        return {"configured": True, "available": False, "current": current, "latest": latest}
+    try:
+        manifest_request = urllib.request.Request(
+            str(manifest_asset.get("browser_download_url", "")),
+            headers={"Accept": "application/octet-stream", "User-Agent": "AutoSNS"},
+        )
+        with urllib.request.urlopen(manifest_request, timeout=8) as response:
+            manifest = json.loads(response.read())
+    except (OSError, TimeoutError, urllib.error.URLError, json.JSONDecodeError):
+        return {"configured": True, "available": False, "error": "업데이트 정보를 확인하지 못했습니다."}
+    if not isinstance(manifest, dict):
+        return {"configured": True, "available": False, "error": "업데이트 정보를 확인하지 못했습니다."}
+
+    minimum = str(manifest.get("minimum_supported_version", "0.0.0"))
+    installer_url = str(manifest.get("installer_url", ""))
+    digest = str(manifest.get("installer_sha256", "")).lower()
+    expected_path = f"/{repo}/releases/download/{release.get('tag_name')}/{installer_name}"
+    parsed_installer = urlparse(installer_url)
+    if (manifest.get("version") != latest or not version_pattern.fullmatch(minimum)
+            or version(minimum) > version(latest)
+            or parsed_installer.scheme != "https" or parsed_installer.netloc != "github.com"
+            or parsed_installer.path != expected_path or not re.fullmatch(r"[a-f0-9]{64}", digest)):
+        return {"configured": True, "available": False, "error": "업데이트 파일 검증 정보가 올바르지 않습니다."}
+
+    available = version(latest) > version(current)
+    required = version(current) < version(minimum)
+    return {"configured": True, "available": available, "required": required,
+            "current": current, "latest": latest, "minimum_supported_version": minimum,
+            "url": installer_url, "sha256": digest, "release_url": str(manifest.get("release_url", ""))}
+
+
+def download_update_installer(update: dict) -> Path:
+    """Download the currently advertised installer and verify its SHA-256."""
+    cfg = settings()
+    repo = str(cfg.get("github_repository", ""))
+    latest = str(update.get("latest", ""))
+    filename = f"AutoSNS-Setup-{latest}.exe"
+    url = str(update.get("url", ""))
+    parsed = urlparse(url)
+    expected_path = f"/{repo}/releases/download/v{latest}/{filename}"
+    # Git tags may omit the v prefix; check_update already validates the exact
+    # tag URL. This second check keeps the downloader from accepting user input.
+    if (not update.get("available") or parsed.scheme != "https" or parsed.netloc != "github.com"
+            or parsed.path not in {expected_path, f"/{repo}/releases/download/{latest}/{filename}"}):
+        raise CloudError("검증된 업데이트 설치 파일을 찾지 못했습니다.")
+    expected_hash = str(update.get("sha256", "")).lower()
+    if not re.fullmatch(r"[a-f0-9]{64}", expected_hash):
+        raise CloudError("업데이트 파일의 검증 정보가 없습니다.")
+
+    request = urllib.request.Request(url, headers={"User-Agent": "AutoSNS"})
+    digest = hashlib.sha256()
+    destination = Path(tempfile.gettempdir()) / filename
+    descriptor, temporary_name = tempfile.mkstemp(prefix="autosns-update-", suffix=".download")
+    os.close(descriptor)
+    temp_path = Path(temporary_name)
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response, temp_path.open("wb") as output:
+            while chunk := response.read(1024 * 1024):
+                output.write(chunk)
+                digest.update(chunk)
+                if output.tell() > 600 * 1024 * 1024:
+                    raise CloudError("업데이트 설치 파일 크기가 허용 범위를 넘었습니다.")
+        if digest.hexdigest() != expected_hash:
+            raise CloudError("업데이트 설치 파일 검증에 실패했습니다. 다시 시도해 주세요.")
+        os.replace(temp_path, destination)
+        return destination
+    except (OSError, TimeoutError, urllib.error.URLError) as exc:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise CloudError("업데이트 설치 파일을 다운로드하지 못했습니다.") from exc
+    except CloudError:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise

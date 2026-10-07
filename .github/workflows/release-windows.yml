@@ -1,4 +1,4 @@
-name: Build and publish Windows EXE
+name: Build and publish Windows installer
 
 on:
   push:
@@ -22,13 +22,54 @@ jobs:
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
           $version = $env:RELEASE_VERSION.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Release tags must be vMAJOR.MINOR.PATCH." }
           $settings = Get-Content cloud_settings.json -Raw | ConvertFrom-Json
           $settings.app_version = $version
           $settings = $settings | ConvertTo-Json -Depth 5
-          Set-Content -Path cloud_settings.json -Value $settings -Encoding utf8
+          $settingsPath = (Resolve-Path cloud_settings.json).Path
+          [System.IO.File]::WriteAllText($settingsPath, $settings, [System.Text.UTF8Encoding]::new($false))
       - name: Build EXE
         run: .\build_windows.bat
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Build installer and update manifest
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          $version = $env:RELEASE_VERSION.TrimStart('v')
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found: $compiler" }
+          & $compiler "/DAppVersion=$version" ".\installer\AutoSNS.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+
+          $policy = Get-Content ".\update-policy.json" -Raw | ConvertFrom-Json
+          $minimum = [string]$policy.minimum_supported_version
+          if ($minimum -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid minimum_supported_version: $minimum" }
+          if ([version]$minimum -gt [version]$version) { throw "Minimum supported version cannot exceed the release version." }
+
+          $installerName = "AutoSNS-Setup-$version.exe"
+          $installerPath = Join-Path ".\dist" $installerName
+          if (-not (Test-Path $installerPath)) { throw "Installer was not produced: $installerPath" }
+          $sha256 = (Get-FileHash $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $tag = $env:RELEASE_VERSION
+          $releaseUrl = "https://github.com/$($env:RELEASE_REPOSITORY)/releases/tag/$tag"
+          $installerUrl = "https://github.com/$($env:RELEASE_REPOSITORY)/releases/download/$tag/$installerName"
+          $manifest = @{
+            version = $version
+            minimum_supported_version = $minimum
+            installer_url = $installerUrl
+            installer_sha256 = $sha256
+            release_url = $releaseUrl
+          } | ConvertTo-Json -Depth 4
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) "dist\AutoSNS-update.json"), $manifest, [System.Text.UTF8Encoding]::new($false))
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" "dist\AutoSNS.exe" --generate-notes
+          RELEASE_VERSION: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_VERSION.TrimStart('v')
+          gh release create $env:RELEASE_VERSION ".\dist\AutoSNS-Setup-$version.exe" ".\dist\AutoSNS-update.json" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw "GitHub Release upload failed with exit code $LASTEXITCODE" }

@@ -1569,14 +1569,24 @@
       .account-modal-actions { display:flex;justify-content:flex-end;gap:8px;margin-top:20px; }
       .account-modal-actions button { height:40px;padding:0 16px;border:1px solid #dfe8e1;border-radius:9px;background:white;color:#57675d;font:inherit;font-weight:700;cursor:pointer; }
       .account-modal-actions .primary { border-color:#19a761;background:#19a761;color:white; }
+      .mandatory-update-backdrop { position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:20px;background:#101828b8;backdrop-filter:blur(5px); }
+      .mandatory-update-backdrop[hidden] { display:none; }
+      .mandatory-update-card { width:min(480px,100%);padding:30px;border:1px solid #e3ece6;border-radius:20px;background:#fff;box-shadow:0 24px 90px #06111f55;text-align:center; }
+      .mandatory-update-card h2 { margin:0 0 10px;color:#26395f;font-size:24px; }
+      .mandatory-update-card p { margin:0;color:#7183a5;line-height:1.65; }
+      .mandatory-update-version { display:inline-block;margin:18px 0;padding:7px 12px;border-radius:999px;background:#eaf8f0;color:#16834e;font-weight:800; }
+      .mandatory-update-status { min-height:24px;margin:12px 0 18px!important;color:#d64b3e!important;font-size:13px; }
+      .mandatory-update-card button { min-height:46px;padding:0 20px;border:0;border-radius:11px;background:#12ae65;color:white;font:inherit;font-weight:800;cursor:pointer; }
+      .mandatory-update-card button:disabled { opacity:.65;cursor:wait; }
+      .optional-update-actions { display:flex;justify-content:center;gap:9px;margin-top:18px; }
+      .optional-update-actions button:first-child { border:1px solid #dfe8e1;background:white;color:#57675d; }
       #blog-page.account-unselected .blog-account-empty { display:block; }
       #blog-page.account-unselected .blog-account-empty { border-style:solid;background:#f7fcf9; }
       #blog-page.account-unselected .blog-layout .switch,
       #blog-page.account-unselected .blog-layout .tiny-btn { pointer-events:none;opacity:.55; }
       #blog-page.account-unselected #start-work { display:none; }
       #blog-page.account-unselected .blog-actions #runner-status,
-      #blog-page.account-unselected .blog-actions #update-action,
-      #blog-page.account-unselected .blog-actions button:not(#naver-login) { display:none !important; }
+      #blog-page.account-unselected .blog-actions button:not(#naver-login):not(#update-action) { display:none !important; }
       @media(max-width:560px) { .blog-account-bar {flex-wrap:wrap;} .blog-account-bar select {flex:1;min-width:0;} .blog-account-bar .blog-btn {margin-left:0;} }
       @media (max-width:560px) { .connection-page {grid-column:auto;padding:20px 12px;} .connection-head h1 {font-size:23px;} }
       /* Blog overview tuned to the supplied dashboard reference. */
@@ -2355,7 +2365,7 @@
               <input class="account-picker-native" type="hidden" id="blog-account-select" value="">
             </div>
             <button class="blog-btn account-add-btn" id="naver-login" onclick="openBlogAccountModal()">＋ 계정 연결</button>
-            <a class="blog-btn" id="update-action" style="display:none" target="_blank" rel="noopener">업데이트 다운로드</a>
+            <button class="blog-btn" id="update-action" type="button" style="display:none" onclick="applyAppUpdate()">업데이트 설치</button>
             <button class="blog-btn" onclick="toast('스케줄 관리 기능은 아직 준비 중이에요.')">▦　스케줄 관리</button>
             <button class="blog-btn primary" id="start-work" onclick="toggleWorkState()">▶　작업 시작</button>
           </div>
@@ -2467,13 +2477,13 @@
     </div>
     <div class="modal-backdrop" id="post-editor-backdrop" onclick="if(event.target===this)closePostEditor()">
       <section class="account-modal post-editor-modal" role="dialog" aria-modal="true" aria-labelledby="post-editor-title">
-        <h2 id="post-editor-title">새 포스팅 작성</h2><p>제목과 내용을 작성해 초안으로 저장하세요.</p>
+        <h2 id="post-editor-title">새 포스팅 작성</h2><p>앱에 저장하거나 네이버 편집기에 임시저장 초안으로 열 수 있어요.</p>
         <input id="post-editor-id" type="hidden">
         <label for="post-editor-title-input">제목</label><input id="post-editor-title-input" maxlength="150" placeholder="포스팅 제목을 입력하세요">
         <div class="post-editor-meta"><div><label for="post-editor-category">카테고리</label><input id="post-editor-category" maxlength="60" placeholder="예: 일상, 여행"></div><div><label for="post-editor-keywords">키워드</label><input id="post-editor-keywords" maxlength="400" placeholder="쉼표로 구분해 입력"></div></div>
         <label for="post-editor-content">내용</label><textarea id="post-editor-content" maxlength="100000" placeholder="포스팅 내용을 작성하세요."></textarea><div class="post-editor-images" id="post-editor-images" hidden></div>
         <p class="account-form-feedback" id="post-editor-feedback" role="status" aria-live="polite"></p>
-        <div class="account-modal-actions"><button type="button" onclick="closePostEditor()">닫기</button><button type="button" id="save-post-button" onclick="saveBlogPost()">초안 저장</button><button class="primary" type="button" id="publish-post-button" onclick="saveBlogPost(true)">네이버 발행</button></div>
+        <div class="account-modal-actions"><button type="button" onclick="closePostEditor()">닫기</button><button type="button" id="save-post-button" onclick="saveBlogPost()">앱에 저장</button><button type="button" id="naver-draft-post-button" onclick="saveBlogPostToNaverDraft()">네이버 임시저장</button><button class="primary" type="button" id="publish-post-button" onclick="saveBlogPost(true)">네이버 발행</button></div>
       </section>
     </div>
     <div class="modal-backdrop" id="trend-progress-modal">
@@ -2491,6 +2501,24 @@
         <h2 id="post-generation-title">네이버 에디터에 초안을 준비하고 있어요</h2>
         <p class="trend-progress-description" id="post-generation-message">제목과 본문을 입력하는 동안 네이버 창은 잠깐 그대로 두세요. 준비가 끝나면 편집할 수 있습니다.</p>
         <div class="trend-progress-spinner" aria-hidden="true"></div>
+      </section>
+    </div>
+    <div class="mandatory-update-backdrop" id="mandatory-update-overlay" role="dialog" aria-modal="true" aria-labelledby="mandatory-update-title" hidden>
+      <section class="mandatory-update-card">
+        <h2 id="mandatory-update-title">AutoSNS 업데이트가 필요해요</h2>
+        <p>현재 버전은 더 이상 지원되지 않아요. 업데이트를 자동으로 설치한 뒤 앱을 다시 열게요.</p>
+        <div class="mandatory-update-version" id="mandatory-update-version"></div>
+        <p class="mandatory-update-status" id="mandatory-update-status" role="status" aria-live="polite"></p>
+        <button id="mandatory-update-button" type="button" onclick="applyAppUpdate()">업데이트 준비 중…</button>
+      </section>
+    </div>
+    <div class="mandatory-update-backdrop" id="optional-update-overlay" role="dialog" aria-modal="true" aria-labelledby="optional-update-title" hidden>
+      <section class="mandatory-update-card">
+        <h2 id="optional-update-title">AutoSNS 새 버전이 있어요</h2>
+        <p>업데이트 내용을 확인하고 지금 설치하거나 나중에 진행할 수 있어요.</p>
+        <div class="mandatory-update-version" id="optional-update-version"></div>
+        <p class="mandatory-update-status" id="optional-update-status" role="status" aria-live="polite"></p>
+        <div class="optional-update-actions"><button type="button" onclick="dismissOptionalUpdate()">나중에</button><button id="optional-update-button" type="button" onclick="applyAppUpdate()">업데이트 설치</button></div>
       </section>
     </div>
     <div class="toast" id="toast"></div>
@@ -3375,6 +3403,59 @@
           if (publish) { toast(message); window.alert(`네이버 발행이 중단됐어요.\n\n${message}`); }
         } finally { button.disabled = false;saveButton.disabled = false; }
       }
+      async function saveBlogPostToNaverDraft() {
+        const button = document.querySelector("#naver-draft-post-button");
+        const localSaveButton = document.querySelector("#save-post-button");
+        const publishButton = document.querySelector("#publish-post-button");
+        const accountId = localStorage.getItem(selectedBlogAccountKey()) || "";
+        const keywords = document.querySelector("#post-editor-keywords").value.split(",").map((word) => word.trim()).filter(Boolean);
+        const payload = {
+          account_id: accountId,
+          id: document.querySelector("#post-editor-id").value,
+          title: document.querySelector("#post-editor-title-input").value,
+          category: document.querySelector("#post-editor-category").value,
+          keywords,
+          content: document.querySelector("#post-editor-content").value,
+        };
+        button.disabled = true;localSaveButton.disabled = true;publishButton.disabled = true;
+        document.querySelector("#post-editor-feedback").textContent = "수정 내용을 저장하고 네이버 임시저장 초안을 준비하고 있어요…";
+        const modal = document.querySelector("#post-generation-modal");
+        const message = document.querySelector("#post-generation-message");
+        let timer = null;
+        try {
+          const savedResponse = await fetch("/api/posts/save", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          const saved = await savedResponse.json();
+          if (!savedResponse.ok) throw new Error(saved.error || "수정 내용을 저장하지 못했어요.");
+          blogPosts = saved.posts || blogPosts;
+          const postId = saved.post?.id || payload.id;
+          if (!postId) throw new Error("네이버 편집기에 열 초안 ID를 확인하지 못했어요.");
+
+          const started = Date.now();
+          message.textContent = "네이버 편집기를 열고 있어요. 초안을 입력하는 동안 잠시 기다려 주세요.";
+          modal.classList.add("show");modal.setAttribute("aria-hidden", "false");
+          timer = setInterval(() => {
+            message.textContent = `네이버 편집기에 초안을 입력하고 있어요 · ${Math.floor((Date.now()-started)/1000)}초`;
+          }, 1000);
+          await ensureNaverSessionForPublishing(accountId, (status) => { message.textContent = status; });
+          message.textContent = "제목, 본문, 이미지와 인용구를 네이버 편집기에 입력하고 있어요. 창을 조작하지 말고 잠시 기다려 주세요.";
+          const draftResponse = await fetch("/api/posts/draft", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_id:accountId,post_id:postId,session_prepared:true}),signal:AbortSignal.timeout(420_000)});
+          const draft = await draftResponse.json().catch(() => ({}));
+          if (!draftResponse.ok) throw new Error(draft.error || "네이버 편집기에 초안을 준비하지 못했어요.");
+          blogPosts = draft.posts || blogPosts;
+          renderPostings();
+          closePostEditor();
+          toast("네이버 편집기에 초안을 입력했어요. 열린 창에서 내용을 확인하고 네이버 임시저장을 눌러 주세요.");
+        } catch (error) {
+          const text = error.name === "TimeoutError" ? "초안 준비 응답이 늦어졌어요. 네이버 편집기를 확인한 뒤 다시 시도해 주세요." : (error.message || "네이버 편집기에 초안을 준비하지 못했어요.");
+          document.querySelector("#post-editor-feedback").textContent = text;
+          toast(text);
+          window.alert(`네이버 임시저장 준비가 중단됐어요.\n\n${text}`);
+        } finally {
+          if (timer) clearInterval(timer);
+          modal.classList.remove("show");modal.setAttribute("aria-hidden", "true");
+          button.disabled = false;localSaveButton.disabled = false;publishButton.disabled = false;
+        }
+      }
       function setPostFilter(filter) {
         blogPostFilter = filter;
         document.querySelectorAll(".posting-filter[data-post-filter]").forEach((button) => {
@@ -3709,7 +3790,6 @@
         refreshBlog();
         refreshRunnerStatus();
         refreshRunLogs();
-        checkForUpdates();
         if (!window.appPollingStarted) {
           window.appPollingStarted = true;
           setInterval(refreshBlog, 5000);
@@ -4447,16 +4527,60 @@
       }
       async function checkForUpdates() {
         try {
-          const response = await fetch("/api/update-check");
+          const response = await fetch("/api/update-check", {cache:"no-store"});
           const release = await response.json();
-          if (release.available && release.url) {
+          window.autosnsUpdate = release;
+          if (release.required) {
+            document.querySelector("#mandatory-update-version").textContent = `현재 v${release.current} · 필수 v${release.minimum_supported_version} 이상`;
+            document.querySelector("#auth-screen").inert = true;
+            document.querySelector("#app-shell").inert = true;
+            document.querySelector("#mandatory-update-overlay").hidden = false;
+            document.querySelector("#mandatory-update-status").textContent = "잠시만 기다려 주세요. 설치 파일을 내려받고 있어요.";
+            applyAppUpdate();
+          } else if (release.available && release.url) {
             const link = document.querySelector("#update-action");
-            link.href = release.url;
-            link.textContent = `업데이트 v${release.latest} 받기`;
+            link.textContent = `업데이트 v${release.latest} 설치`;
             link.style.display = "inline-flex";
+            document.querySelector("#optional-update-version").textContent = `현재 v${release.current} · 새 버전 v${release.latest}`;
+            document.querySelector("#optional-update-overlay").hidden = false;
           }
         } catch (error) {}
       }
+      async function applyAppUpdate() {
+        if (window.autosnsUpdateApplying) return;
+        const mandatory = Boolean(window.autosnsUpdate?.required);
+        const optionalModalOpen = !document.querySelector("#optional-update-overlay").hidden;
+        const button = document.querySelector(mandatory ? "#mandatory-update-button" : optionalModalOpen ? "#optional-update-button" : "#update-action");
+        const status = document.querySelector(mandatory ? "#mandatory-update-status" : "#optional-update-status");
+        window.autosnsUpdateApplying = true;
+        if (button) { button.disabled = true;button.textContent = "설치 파일 확인 중…"; }
+        if (status) status.textContent = "설치 파일을 내려받고 무결성을 확인하고 있어요.";
+        try {
+          const response = await fetch("/api/apply-update", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({version:window.autosnsUpdate?.latest || ""}),signal:AbortSignal.timeout(180_000)});
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const failure = new Error(result.error || "업데이트를 시작하지 못했어요.");
+            failure.status = response.status;
+            throw failure;
+          }
+          if (status) status.textContent = "설치 중이에요. AutoSNS가 업데이트 후 다시 열립니다.";
+          if (button) button.textContent = "설치 중…";
+        } catch (error) {
+          const text = error.name === "TimeoutError" ? "다운로드 시간이 초과됐어요. 인터넷 연결을 확인하고 다시 시도해 주세요." : (error.message || "업데이트를 시작하지 못했어요.");
+          if ((mandatory || optionalModalOpen) && status) status.textContent = text;
+          else toast(text);
+          if (button) { button.disabled = false;button.textContent = mandatory ? "다시 업데이트" : `업데이트 v${window.autosnsUpdate?.latest || ""} 설치`; }
+          window.autosnsUpdateApplying = false;
+          if (mandatory) {
+            const retryDelay = responseStatusIsConflict(error) ? 10_000 : 30_000;
+            if (status) status.textContent = `${text} ${Math.round(retryDelay / 1000)}초 뒤 자동으로 다시 시도합니다.`;
+            clearTimeout(window.autosnsUpdateRetryTimer);
+            window.autosnsUpdateRetryTimer = setTimeout(applyAppUpdate, retryDelay);
+          }
+        }
+      }
+      function responseStatusIsConflict(error) { return error.status === 409; }
+      function dismissOptionalUpdate() { document.querySelector("#optional-update-overlay").hidden = true; }
       function toast(s) {
         let e = document.getElementById("toast");
         e.textContent = s;
@@ -4474,6 +4598,7 @@
           ":" +
           String(d.getMinutes()).padStart(2, "0");
       }, 1000);
+      checkForUpdates();
       checkAuth();
     </script>
   </body>

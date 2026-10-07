@@ -53,7 +53,7 @@ RUN_ACCOUNT_ID: str | None = None
 RUN_STOP_REQUESTED = False
 PUBLISH_LOCK = threading.Lock()
 PUBLISHING_POSTS: set[tuple[str, str]] = set()
-UI_API_VERSION = 24
+UI_API_VERSION = 25
 RUN_LOG_LOCK = threading.Lock()
 RUN_LOGS: deque[dict] = deque(maxlen=500)
 RUN_LOG_ID = 0
@@ -453,6 +453,39 @@ class Handler(BaseHTTPRequestHandler):
         global RUN_PROCESS, RUN_MODE, RUN_ACCOUNT_ID, RUN_STOP_REQUESTED, RUN_LOG_ID
         if not self._local_request_allowed(require_origin=True):
             self._json({"error": "허용되지 않은 로컬 요청입니다."}, 403); return
+        if self.path == "/api/apply-update":
+            try:
+                if sys.platform != "win32" or not getattr(sys, "frozen", False):
+                    self._json({"error": "설치 파일 자동 실행은 배포된 Windows 앱에서 사용할 수 있어요."}, 400); return
+                body = self._body()
+                update = cloud.check_update()
+                requested_version = str(body.get("version", ""))
+                if not update.get("available") or requested_version != update.get("latest"):
+                    self._json({"error": "최신 업데이트 정보를 다시 확인한 뒤 시도해 주세요."}, 409); return
+                with RUN_LOCK:
+                    if RUN_PROCESS is not None and RUN_PROCESS.poll() is None:
+                        self._json({"error": "진행 중인 자동화 작업을 마친 뒤 업데이트해 주세요."}, 409); return
+                with PUBLISH_LOCK:
+                    if PUBLISHING_POSTS:
+                        self._json({"error": "네이버 포스팅 작업을 마친 뒤 업데이트해 주세요."}, 409); return
+                installer = cloud.download_update_installer(update)
+                subprocess.Popen(
+                    [str(installer), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
+                    cwd=str(installer.parent),
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                                   | getattr(subprocess, "DETACHED_PROCESS", 0)),
+                )
+                self._json({"ok": True, "installing": True})
+                # Release the executable before Inno Setup replaces it and
+                # starts the newly installed copy. The installer remains open
+                # if the user cancels; they can reopen the current version.
+                threading.Timer(1.5, os._exit, args=(0,)).start()
+            except Exception as exc:
+                self._json({"error": str(exc) or "업데이트 설치를 시작하지 못했어요."}, 502)
+            return
         if self.path in {"/api/auth/login", "/api/auth/signup", "/api/auth/resend"}:
             try:
                 body = self._body()

@@ -14,14 +14,24 @@ Supabase의 기본 이메일 발송은 테스트용 제한이 있으므로 실�
 
 `supabase/schema.sql`은 새 계정에 기본 사용 권한을 자동으로 부여하고, 기존 `pending` 계정도 활성화합니다. 이미 이전 스키마를 적용했다면 SQL Editor에서 업데이트된 파일 전체를 다시 실행해야 기존 계정과 신규 가입에 자동 활성화가 적용됩니다. 이메일 인증을 켠 경우에는 인증 링크를 누른 뒤 로그인하면 사용할 수 있습니다. 댓글은 라이선스의 `daily_comment_limit` 범위 안에서 서버가 생성합니다.
 
-## Windows EXE 만들기
+## Windows 설치 파일 만들기
 
 Windows 10/11에서 Python 3.12를 설치하고 프로젝트 ZIP을 풉니다. `cloud_settings.json`에 위 공개 설정과 앱 버전을 입력한 뒤 `build_windows.bat`을 실행합니다. 빌드는 설정에 자리표시자가 남아 있으면 중단됩니다.
 
-빌드 결과는 `dist\AutoSNS.exe`입니다. 이 파일 하나를 전달하면 됩니다. 받는 사람은 앱을 실행해 이메일 회원가입과 인증을 마친 뒤 로그인하면 바로 사용할 수 있습니다. 네이버 계정 정보와 자동화 기록은 각 PC의 `%APPDATA%\AutoSNS`에 별도로 저장됩니다.
+`build_windows.bat`은 `dist\AutoSNS.exe`를 만듭니다. 설치 파일을 로컬에서 만들려면 Inno Setup 6을 설치한 뒤 프로젝트 루트에서 아래 명령을 실행합니다.
+
+```powershell
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=1.0.0" ".\installer\AutoSNS.iss"
+```
+
+`1.0.0`은 `cloud_settings.json`의 `app_version`과 같은 값으로 바꿉니다. 결과는 `dist\AutoSNS-Setup-1.0.0.exe`입니다. 설치는 관리자 권한 없이 사용자별 프로그램 폴더에 진행하고, 계정·설정·작업 기록은 기존처럼 `%APPDATA%\AutoSNS`에 남습니다.
 
 ## 버전 업데이트 배포
 
-GitHub Actions의 `release-windows.yml`은 `vMAJOR.MINOR.PATCH` 형식 태그가 올라오면 Windows EXE를 빌드하고 GitHub Release에 첨부합니다. 새 빌드마다 `cloud_settings.json`의 `app_version`을 올리고 태그를 push합니다. 로그인한 앱은 GitHub Release를 확인해 새 버전이 있으면 다운로드 링크를 표시합니다.
+GitHub Actions의 `release-windows.yml`은 `vMAJOR.MINOR.PATCH` 형식 태그가 올라오면 Windows 설치 파일을 빌드해 GitHub Release에 첨부합니다. 릴리스에는 설치 파일과 SHA-256 검증값을 담은 `AutoSNS-update.json`이 함께 올라갑니다. 앱은 시작할 때 이 정보를 확인하고 설치 파일의 해시를 검사한 뒤 설치 프로그램을 실행합니다.
+
+업데이트를 선택 사항으로 배포하려면 `update-policy.json`의 `minimum_supported_version`을 그대로 둡니다. 필수 업데이트로 배포하려면 릴리스 전에 이 값을 새 버전으로 올립니다. 예를 들어 `v0.4.0`을 필수로 만들려면 `0.4.0`으로 설정합니다. 필수 버전보다 오래된 앱은 업데이트 전까지 사용할 수 없고, 설치 후 앱이 다시 열립니다.
+
+기존 단일 EXE에는 필수 업데이트 차단 기능이 없으므로 설치 파일 방식으로 처음 전환할 때는 사용자가 설치 파일을 한 번 실행해야 합니다. 이전 EXE는 새 설치 파일을 다운로드할 수 있지만, 설치 전까지는 필수 업데이트 정책을 강제할 수 없습니다.
 
 Supabase 무료 프로젝트는 일정 기간 비활성일 때 일시 중지될 수 있습니다. 고객에게 지속 제공하기 전에 무료 플랜의 한도와 가동 조건을 확인하세요.

@@ -199,6 +199,137 @@ async def _click_horizontal_line_option(page, style_value: str) -> bool:
     return False
 
 
+async def _click_table_edge_plus(page, section, axis: str) -> bool:
+    """Click SmartEditor's visible + control at the last row/column edge."""
+    try:
+        await section.hover(timeout=2_000)
+        await page.wait_for_timeout(100)
+        geometry = await section.evaluate("""section => {
+          const table=section.querySelector('table')||section;
+          const r=table.getBoundingClientRect();
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};
+        }""")
+        # SmartEditor renders the + controls beside the table, sometimes in a
+        # wrapper next to the section. Search nearby wrappers and rank by both
+        # their label/class and position relative to the table.
+        for depth in ("xpath=..", "xpath=../..", "xpath=../../.."):
+            scope = section.locator(depth)
+            controls = scope.locator("button, [role='button'], [class*='add'], [class*='plus']")
+            candidates = []
+            for index in range(min(await controls.count(), 80)):
+                item = controls.nth(index)
+                try:
+                    if not await item.is_visible():
+                        continue
+                    box = await item.bounding_box()
+                    if not box:
+                        continue
+                    label = " ".join(filter(None, [
+                        await item.inner_text(), await item.get_attribute("aria-label"),
+                        await item.get_attribute("title"), await item.get_attribute("class"),
+                    ])).lower()
+                    x = box["x"] + box["width"] / 2
+                    y = box["y"] + box["height"] / 2
+                    if axis == "column":
+                        in_edge = geometry["top"] - 12 <= y <= geometry["top"] + 12 and geometry["left"] - 12 <= x <= geometry["right"] + 12
+                        semantic = any(token in label for token in ("column", "col", "열"))
+                        edge_rank = x
+                    else:
+                        in_edge = geometry["left"] - 12 <= x <= geometry["left"] + 12 and geometry["top"] - 12 <= y <= geometry["bottom"] + 12
+                        semantic = any(token in label for token in ("row", "행"))
+                        edge_rank = y
+                    plus_like = "+" in label or any(token in label for token in ("add", "plus", "추가"))
+                    if in_edge and (plus_like or semantic):
+                        candidates.append((semantic, edge_rank, item))
+                except Exception:
+                    continue
+            if candidates:
+                candidates.sort(key=lambda candidate: (candidate[0], candidate[1]))
+                await candidates[-1][2].click(timeout=2_000)
+                return True
+        return False
+    except Exception:
+        return False
+
+
+async def _insert_native_table(page, block: dict) -> dict | None:
+    """Insert and fill a native SmartEditor table, expanding rows and columns."""
+    headers = [str(value).strip() for value in block.get("headers", [])]
+    rows = block.get("rows", [])
+    values = [headers, *[[str(value).strip() for value in row] for row in rows]]
+    if not headers or len(headers) > 6 or len(values) > 13 or any(len(row) > 6 for row in values):
+        return None
+    target_rows = max(3, len(values))
+    target_columns = max(3, max((len(row) for row in values), default=0))
+    _, button = await _find_visible_in_frames(page, (
+        "li.se-toolbar-item-insert-table button.se-document-toolbar-button",
+        "li.se-toolbar-item-insert-table button:not(.se-document-toolbar-select-option-button)",
+        "button[data-name='table'][data-type='icon']",
+        "button[title='표']",
+        "button[aria-label='표']",
+    ))
+    if button is None:
+        return None
+    try:
+        before = await page.evaluate("""() => document.querySelector('#mainFrame')?.contentDocument?.querySelectorAll('.se-section-table').length||0""")
+        await button.click(timeout=5_000)
+        section = page.frame_locator("#mainFrame").locator(".se-section-table").last
+        for _ in range(30):
+            if await page.evaluate("""(n) => (document.querySelector('#mainFrame')?.contentDocument?.querySelectorAll('.se-section-table').length||0)>n""", before):
+                break
+            await page.wait_for_timeout(100)
+        else:
+            return None
+        # SmartEditor starts with 3x3 and exposes + controls along the top and
+        # left edges. Grow columns first so row additions use the final width.
+        cells = section.locator("[contenteditable='true']")
+        for _ in range(target_columns - 3):
+            before_count = await cells.count()
+            if not await _click_table_edge_plus(page, section, "column"):
+                return None
+            for _ in range(20):
+                if await cells.count() >= before_count + 3:
+                    break
+                await page.wait_for_timeout(100)
+            if await cells.count() < before_count + 3:
+                return None
+        for _ in range(target_rows - 3):
+            before_count = await cells.count()
+            if not await _click_table_edge_plus(page, section, "row"):
+                return None
+            for _ in range(20):
+                if await cells.count() >= before_count + target_columns:
+                    break
+                await page.wait_for_timeout(100)
+            if await cells.count() < before_count + target_columns:
+                return None
+        if await cells.count() < target_rows * target_columns:
+            return None
+        expected = []
+        for index in range(target_rows * target_columns):
+            row_index, col_index = divmod(index, target_columns)
+            value = values[row_index][col_index] if row_index < len(values) and col_index < len(values[row_index]) else ""
+            expected.append(value)
+            cell = cells.nth(index)
+            await cell.fill(value, timeout=3_000)
+        capture = await page.evaluate("""() => {
+          const root=document.querySelector('#mainFrame');
+          const editor=root?.contentWindow?.SmartEditor?._editors?.blogpc001;
+          const components=editor?.getDocumentData?.()?.document?.components||[];
+          const doc=root?.contentDocument;
+          const sections=[...(doc?.querySelectorAll('.se-section-table')||[])];
+          const section=sections.at(-1);
+          const component=[...components].reverse().find(item=>String(item?.['@ctype']||'').toLowerCase().includes('table'))||null;
+          const cellTexts=section?[...section.querySelectorAll('[contenteditable="true"]')].map(cell=>cell.innerText.trim()):[];
+          return {component,cellTexts};
+        }""")
+        if not capture or not capture.get("component") or capture.get("cellTexts", [])[:len(expected)] != expected:
+            return None
+        return capture["component"]
+    except Exception:
+        return None
+
+
 async def _restore_editor_title(frame, title: str) -> bool:
     """Write the title through SmartEditor's visible title field after body updates."""
     selectors = (
@@ -472,11 +603,13 @@ async def _publish(post: dict, account_id: str, publish: bool = True,
                       flush();
                       components.push({__dividerPlanIndex:blockIndex});
                     }
+                    else if(feature==='table'){
+                      flush();
+                      components.push({__tablePlanIndex:blockIndex});
+                    }
                     else if(feature==='photo'){flush();if(uploaded[block.image_id])components.push(uploaded[block.image_id]);}
-                    else if(feature==='table'||feature==='place'){
-                      return {ok:false,error:feature==='table'
-                        ?'네이버 표는 표 도구로 삽입해야 해서 현재 자동 입력을 멈췄어요. 표 내용을 본문 문장으로 바꿔 다시 생성해 주세요.'
-                        :'네이버 장소는 장소 검색 결과를 선택해야 첨부돼요. 장소 블록 자동 첨부가 준비되지 않아 발행을 멈췄어요.'};
+                    else if(feature==='place'){
+                      return {ok:false,error:'네이버 장소는 장소 검색 결과를 선택해야 첨부돼요. 장소 블록 자동 첨부가 준비되지 않아 발행을 멈췄어요.'};
                     }
                   }
                   flush();
@@ -624,15 +757,60 @@ async def _publish(post: dict, account_id: str, publish: bool = True,
                       editor.setDocumentData(structuredClone(doc));
                     }""")
                     await page.wait_for_timeout(150)
-                await _show_publish_notice(page, "선택한 인용구와 구분선을 본문 순서대로 조립하고 있어요.")
-                components = [
-                    quote_components[component["__quotePlanIndex"]]
-                    if isinstance(component, dict) and "__quotePlanIndex" in component
-                    else divider_components[component["__dividerPlanIndex"]]
-                    if isinstance(component, dict) and "__dividerPlanIndex" in component
-                    else component
-                    for component in result.get("components", [])
-                ]
+                table_components = {}
+                table_fallbacks = {}
+                table_total = sum(item.get("type") == "table" for item in editor_blocks)
+                table_number = 0
+                for block_index, block in enumerate(editor_blocks):
+                    if block.get("type") != "table":
+                        continue
+                    table_number += 1
+                    await _show_publish_notice(page, f"표 편집 중 · {table_number}/{table_total}")
+                    native_table = await _insert_native_table(page, block)
+                    if native_table is not None:
+                        table_components[block_index] = native_table
+                    else:
+                        # Preserve the information and finish the post if this
+                        # SmartEditor build cannot expose a writable table.
+                        headers = [str(value).strip() for value in block.get("headers", [])]
+                        rows = block.get("rows", [])
+                        lines = []
+                        for row in rows:
+                            fields = [
+                                f"{headers[index]}: {str(value).strip()}" if index < len(headers) else str(value).strip()
+                                for index, value in enumerate(row)
+                            ]
+                            line = " · ".join(field for field in fields if field)
+                            if line:
+                                lines.append(line)
+                        table_fallbacks[block_index] = lines
+                    await page.evaluate("""() => {
+                      const editor=document.querySelector('#mainFrame')?.contentWindow?.SmartEditor?._editors?.blogpc001;
+                      const doc=editor?.getDocumentData?.();
+                      if(!doc?.document?.components) return;
+                      const title=doc.document.components.find(component=>component['@ctype']==='documentTitle');
+                      doc.document.components=title?[title]:[];
+                      editor.setDocumentData(structuredClone(doc));
+                    }""")
+                    await page.wait_for_timeout(150)
+                await _show_publish_notice(page, "인용구, 구분선, 표를 본문 순서대로 조립하고 있어요.")
+                components = []
+                for component in result.get("components", []):
+                    if isinstance(component, dict) and "__quotePlanIndex" in component:
+                        components.append(quote_components[component["__quotePlanIndex"]])
+                    elif isinstance(component, dict) and "__dividerPlanIndex" in component:
+                        components.append(divider_components[component["__dividerPlanIndex"]])
+                    elif isinstance(component, dict) and "__tablePlanIndex" in component:
+                        block_index = component["__tablePlanIndex"]
+                        native_table = table_components.get(block_index)
+                        if native_table is not None:
+                            components.append(native_table)
+                        else:
+                            for row_index, line in enumerate(table_fallbacks.get(block_index, [])):
+                                node_id = f"table-{block_index}-{row_index}"
+                                components.append({"@ctype": "text", "id": node_id, "layout": "default", "value": [{"@ctype": "paragraph", "id": node_id + "-p", "nodes": [{"@ctype": "textNode", "id": node_id + "-n", "value": line, "style": {"@ctype": "nodeStyle", "fontSizeCode": "fs19", "bold": False}}], "style": {"@ctype": "paragraphStyle", "lineHeight": 1.7}}]})
+                    else:
+                        components.append(component)
                 assembled = await page.evaluate("""async ({title,components,delay}) => {
                   const editor=document.querySelector('#mainFrame')?.contentWindow?.SmartEditor?._editors?.blogpc001;
                   if(!editor?.getDocumentData||!editor?.setDocumentData||!editor?.setDocumentTitle) return {ok:false};
