@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.generate-post-topics]
 verify_jwt = true
+
+[functions.openai-proxy]
+verify_jwt = true

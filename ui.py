@@ -771,9 +771,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._json({"error": "블로그 계정을 선택해 주세요."}, 400); return
                 cfg = load_config()
                 api_key = str(cfg.get("comment", {}).get("api_key", "") or os.environ.get("OPENAI_API_KEY", "")).strip()
+                session = _auth_session(self)
+                use_cloud = cloud.supabase_configured()
+                if use_cloud and not str((session or {}).get("access_token", "")):
+                    self._json({"error": "클라우드 로그인 정보가 없습니다. 앱에서 다시 로그인해 주세요."}, 401); return
                 result = asyncio.run(recommend_topics(
                     account_id, [], api_key,
-                    use_cloud=not api_key and cloud.supabase_configured(),
+                    use_cloud=use_cloud,
+                    access_token=str((session or {}).get("access_token", "")) or None,
                 ))
                 self._json(result)
             except Exception as e:
@@ -825,10 +830,15 @@ class Handler(BaseHTTPRequestHandler):
                     self._json({"error": "여러 키워드는 키워드별로 나누어 생성해야 해요."}, 400); return
                 cfg = load_config()
                 api_key = str(cfg.get("comment", {}).get("api_key", "") or os.environ.get("OPENAI_API_KEY", "")).strip()
-                if not api_key:
+                use_cloud = cloud.supabase_configured()
+                session = _auth_session(self) if use_cloud else None
+                access_token = str((session or {}).get("access_token", ""))
+                if use_cloud and not access_token:
+                    self._json({"error": "클라우드 로그인 정보가 없습니다. 앱에서 다시 로그인해 주세요."}, 401); return
+                if not use_cloud and not api_key:
                     self._json({"error": "포스팅 생성에 사용할 OpenAI API 키를 설정해 주세요."}, 400); return
                 from core.blog_writer import generate_blog_draft
-                post = generate_blog_draft(api_key, settings, account_id)
+                post = generate_blog_draft(api_key, settings, account_id, access_token=access_token or None)
                 posts_path = data_file("blog_posts.json", account_id)
                 posts = load_json(posts_path, [])
                 if not isinstance(posts, list): posts = []

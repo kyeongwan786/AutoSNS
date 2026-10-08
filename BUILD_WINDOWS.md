@@ -4,7 +4,7 @@
 
 1. Supabase 프로젝트를 만들고 `supabase/schema.sql`을 SQL Editor에서 실행합니다.
 2. Supabase의 Project URL과 publishable/anon key를 `cloud_settings.json`에 입력합니다. Service role key는 EXE나 이 파일에 넣지 않습니다.
-3. Supabase CLI로 `supabase functions deploy generate-comment`를 실행합니다. Supabase 대시보드의 Edge Function Secrets에 OpenAI 키를 `OPENAI_API_KEY` 이름으로 등록합니다. `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`는 함수의 기본 환경 변수로 사용합니다.
+3. Supabase CLI로 `supabase functions deploy generate-comment`, `generate-post-topics`, `openai-proxy`를 배포합니다. Supabase 대시보드의 Edge Function Secrets에 OpenAI 키를 `OPENAI_API_KEY` 이름으로 등록합니다. `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`는 함수의 기본 환경 변수로 사용합니다. 앱의 댓글·주제 추천·포스팅 본문·AI 이미지 생성은 사용자 로그인과 활성 이용 권한을 확인한 뒤 서버 키로 요청합니다.
 4. Supabase Authentication에서 Email provider의 **Confirm Email**을 켜고 비밀번호 최소 길이를 8자로 설정합니다. Authentication > URL Configuration의 Redirect URLs에 `http://127.0.0.1:8765/email-verified`를 추가해야 인증 링크가 앱으로 돌아옵니다.
 5. 인증 메일을 꾸미려면 먼저 Authentication > Emails > SMTP Settings에서 사용자 지정 SMTP를 설정합니다. 새 무료 프로젝트는 기본 메일 발송을 사용할 때 템플릿 수정이 잠겨 있습니다. SMTP 설정 후 Emails > Templates > Confirm sign up에서 제목을 `AutoSNS 이메일 인증을 완료해 주세요`로 바꾸고 `supabase/confirmation-email.html` 내용을 붙여넣습니다.
 6. GitHub에 **공개** 저장소를 만들고 `cloud_settings.json`의 `github_repository`를 `소유자/저장소` 형식으로 설정합니다. 업데이트 확인은 공개 GitHub Releases를 사용합니다.
@@ -21,10 +21,10 @@ Windows 10/11에서 Python 3.12를 설치하고 프로젝트 ZIP을 풉니다. `
 `build_windows.bat`은 `dist\AutoSNS.exe`를 만듭니다. 설치 파일을 로컬에서 만들려면 Inno Setup 6을 설치한 뒤 프로젝트 루트에서 아래 명령을 실행합니다.
 
 ```powershell
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=1.0.0" ".\installer\AutoSNS.iss"
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=1.0.1" ".\installer\AutoSNS.iss"
 ```
 
-`1.0.0`은 `cloud_settings.json`의 `app_version`과 같은 값으로 바꿉니다. 결과는 `dist\AutoSNS-Setup-1.0.0.exe`입니다. 설치는 관리자 권한 없이 사용자별 프로그램 폴더에 진행하고, 계정·설정·작업 기록은 기존처럼 `%APPDATA%\AutoSNS`에 남습니다.
+`1.0.1`은 `cloud_settings.json`의 `app_version`과 같은 값으로 바꿉니다. 결과는 `dist\AutoSNS-Setup-1.0.1.exe`입니다. 설치는 관리자 권한 없이 사용자별 프로그램 폴더에 진행하고, 계정·설정·작업 기록은 기존처럼 `%APPDATA%\AutoSNS`에 남습니다.
 
 ## 버전 업데이트 배포
 

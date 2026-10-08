@@ -151,7 +151,8 @@ async def scrape_creator_trends(account_id: str, chrome_path: str = "") -> dict:
             await close_naver()
 
 
-async def recommend_topics(account_id: str, context_keywords: list[str] | None, openai_api_key: str, use_cloud: bool = False) -> dict:
+async def recommend_topics(account_id: str, context_keywords: list[str] | None, openai_api_key: str,
+                           use_cloud: bool = False, access_token: str | None = None) -> dict:
     """Analyze all available Creator Advisor topic trends; no user keyword is required."""
     if not openai_api_key and not use_cloud:
         raise RuntimeError("GPT 추천을 사용하려면 config.json의 comment.api_key 또는 OPENAI_API_KEY 환경 변수를 설정해 주세요.")
@@ -159,7 +160,7 @@ async def recommend_topics(account_id: str, context_keywords: list[str] | None, 
 
     if use_cloud:
         from core import cloud
-        result = await asyncio.to_thread(cloud.generate_post_topics, trend_data, [])
+        result = await asyncio.to_thread(cloud.generate_post_topics, trend_data, [], access_token)
         items = result.get("recommendations", []) if isinstance(result, dict) else []
         result = {
             "recommendations": _clean_recommendations(items, trend_data),

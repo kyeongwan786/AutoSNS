@@ -439,9 +439,10 @@ def _quality_issues(blocks: list[dict]) -> list[str]:
     return ["문단 반복"] if len(paragraphs) != len(set(paragraphs)) else []
 
 
-def generate_blog_draft(api_key: str, settings: dict, account_id: str) -> dict:
+def generate_blog_draft(api_key: str, settings: dict, account_id: str,
+                         access_token: str | None = None) -> dict:
     """Return a validated structured draft and locally persisted GPT Image assets."""
-    from openai import OpenAI
+    from core.llm import create_openai_client
 
     keywords = [str(word).strip()[:40] for word in settings.get("keywords", []) if str(word).strip()][:10]
     if not keywords:
@@ -461,7 +462,7 @@ def generate_blog_draft(api_key: str, settings: dict, account_id: str) -> dict:
         ("본문의 정보 밀도에 따라 1~5개 중 필요한 개수를 결정" if auto_count else f"정확히 {max(0, min(5, int(settings.get('image_count', 0))))}개")
         if image_enabled else "0개"
     )
-    client = OpenAI(api_key=api_key, timeout=120.0, max_retries=1)
+    client = create_openai_client(api_key, access_token, timeout=120.0, max_retries=1)
     research_notes, sources = _research_topic(client, keywords[0])
     editorial_plan = _plan_article(client, keywords[0], research_notes, sources, settings)
     common_guidance = f"""당신은 한 명의 독자에게 말하듯 글을 쓰는 네이버 블로그 작성자입니다. 보도자료나 뉴스 기사의 어조로 쓰지 마세요.

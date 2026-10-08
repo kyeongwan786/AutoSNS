@@ -13,6 +13,23 @@ def resolve_api_key(cfg_comment: dict) -> str:
     return cfg_comment.get("api_key") or os.environ.get("OPENAI_API_KEY", "")
 
 
+def create_openai_client(api_key: str = "", access_token: str | None = None, **kwargs):
+    """Create an OpenAI client that routes licensed app users through Supabase."""
+    from openai import OpenAI
+
+    if cloud.supabase_configured():
+        token = str(access_token or "").strip()
+        if not token:
+            raise cloud.CloudError("AI 기능을 사용하려면 앱에 다시 로그인해 주세요.")
+        cfg = cloud.settings()
+        base_url = f"{str(cfg['supabase_url']).rstrip('/')}/functions/v1/openai-proxy/v1"
+        return OpenAI(api_key=token, base_url=base_url, **kwargs)
+    resolved_key = str(api_key or os.environ.get("OPENAI_API_KEY", "")).strip()
+    if not resolved_key:
+        raise cloud.CloudError("OpenAI API 키를 설정하거나 클라우드 계정에 로그인해 주세요.")
+    return OpenAI(api_key=resolved_key, **kwargs)
+
+
 async def make_comment(cfg_comment: dict, title: str, body: str) -> str | None:
     """댓글 한 문장 생성. 광고/내용 부족이면 None"""
     global _client
