@@ -18,6 +18,26 @@ import asyncio
 import random
 import sys
 
+
+def _configure_console_output() -> None:
+    """Prevent Windows legacy console encodings from crashing on emoji labels."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            # The UI captures child-process output as UTF-8. Keep a directly
+            # attached terminal's configured encoding, but replace characters
+            # it cannot represent instead of raising UnicodeEncodeError.
+            if stream.isatty():
+                stream.reconfigure(errors="replace")
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
+
+
+_configure_console_output()
+
 from playwright.async_api import Page, async_playwright
 
 from core.config import load_config

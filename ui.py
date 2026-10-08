@@ -53,7 +53,7 @@ RUN_ACCOUNT_ID: str | None = None
 RUN_STOP_REQUESTED = False
 PUBLISH_LOCK = threading.Lock()
 PUBLISHING_POSTS: set[tuple[str, str]] = set()
-UI_API_VERSION = 27
+UI_API_VERSION = 28
 RUN_LOG_LOCK = threading.Lock()
 RUN_LOGS: deque[dict] = deque(maxlen=500)
 RUN_LOG_ID = 0
