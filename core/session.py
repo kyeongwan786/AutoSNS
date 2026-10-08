@@ -64,6 +64,9 @@ def _cdp_port(general: dict) -> int:
 
 LOGIN_COOKIES = {"NID_AUT", "NID_SES"}
 LOGIN_WAIT_SECONDS = 300
+# Credential based recovery may pause for Naver's device/identity checks.
+# Keep the visible login window open long enough for the user to finish those.
+CREDENTIAL_LOGIN_WAIT_SECONDS = 900
 LOGIN_URL = "https://nid.naver.com/nidlogin.login"
 # 로그아웃 상태면 반드시 로그인 페이지로 튕기는 네이버 메일로 실제 로그인 여부 확인
 LOGIN_CHECK_URL = "https://mail.naver.com/"
@@ -411,7 +414,7 @@ async def _open_cdp_with_credentials(p: Playwright, g: dict, credentials: dict) 
         if not submitted:
             raise RuntimeError("네이버 로그인 요청을 제출하지 못했습니다.")
 
-        for _ in range(LOGIN_WAIT_SECONDS):
+        for _ in range(CREDENTIAL_LOGIN_WAIT_SECONDS):
             if await _credential_error_visible(page):
                 raise NaverCredentialError("Naver rejected the submitted credentials")
             if await is_logged_in(context) and await _check_context_login(context):
@@ -556,7 +559,7 @@ async def _open_playwright_with_credentials(p: Playwright, g: dict,
         else:
             await password_field.first.press("Enter", timeout=5_000)
 
-        for _ in range(LOGIN_WAIT_SECONDS):
+        for _ in range(CREDENTIAL_LOGIN_WAIT_SECONDS):
             if await _credential_error_visible(page):
                 raise NaverCredentialError("네이버가 저장된 아이디 또는 비밀번호를 거부했습니다. 계정 연결에서 로그인 정보를 갱신해 주세요.")
             if await is_logged_in(context) and await _check_context_login(context):

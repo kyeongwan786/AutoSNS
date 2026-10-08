@@ -3061,7 +3061,7 @@
           banner.querySelector(".post-ai-activity-icon span").textContent = error ? "!" : "✦";
       }
       async function ensureNaverSessionForPublishing(accountId, onProgress = () => {}) {
-        const timeoutAt = Date.now() + 330_000;
+        const timeoutAt = Date.now() + 930_000;
         let stateResponse = await fetch("/api/run-status", {cache:"no-store"});
         let state = await stateResponse.json();
         if (state.running && (state.mode !== "login" || state.account_id !== accountId)) {
@@ -3078,7 +3078,7 @@
           state = await stateResponse.json();
           if (state.running) {
             if (state.mode !== "login" || state.account_id !== accountId) throw new Error("로그인 확인 중 다른 작업이 시작되어 발행을 멈췄어요.");
-            onProgress("저장된 아이디·비밀번호로 네이버 로그인 중이에요. 추가 본인 확인이 나오면 열린 창에서 완료해 주세요.");
+            onProgress("저장된 아이디·비밀번호로 로그인 창에 자동 입력했어요. 네이버가 추가 본인 확인을 요구하면 열린 창에서 완료해 주세요. 끝나면 초안 준비를 자동으로 이어갑니다.");
             continue;
           }
           if (state.mode !== "login" || state.account_id !== accountId) continue;
@@ -3086,7 +3086,7 @@
             onProgress("저장된 로그인 정보가 확인되지 않아 계정 확인을 기다리고 있어요. 화면에 로그인 정보 입력창이 뜨면 갱신해 주세요.");
             continue;
           }
-          if (state.exit_code !== 0) throw new Error("네이버 자동 로그인이 완료되지 않았어요. 열린 창에서 본인 확인 후 다시 시도해 주세요.");
+          if (state.exit_code !== 0) throw new Error("네이버 로그인이 완료되지 않았어요. 저장된 아이디·비밀번호로 다시 로그인 창을 열려면 ‘다시 임시저장’을 눌러 주세요. 네이버 본인 확인이 나오면 창에서 완료하면 이어서 진행돼요.");
           await refreshBlogAccounts();
           const account = blogAccounts.find((item) => item.id === accountId);
           if (!account?.connected) throw new Error("네이버 로그인은 끝났지만 세션 저장을 확인하지 못했어요. 계정 상태를 새로고침하고 다시 발행해 주세요.");
