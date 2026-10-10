@@ -4563,8 +4563,9 @@
             failure.status = response.status;
             throw failure;
           }
-          if (status) status.textContent = "설치 중이에요. AutoSNS가 업데이트 후 다시 열립니다.";
-          if (button) button.textContent = "설치 중…";
+          if (status) status.textContent = "설치를 시작했어요. 새 버전이 열리면 이 화면도 자동으로 전환됩니다.";
+          if (button) button.textContent = "설치 확인 중…";
+          await waitForInstalledUpdate(status, button, mandatory);
         } catch (error) {
           const text = error.name === "TimeoutError" ? "다운로드 시간이 초과됐어요. 인터넷 연결을 확인하고 다시 시도해 주세요." : (error.message || "업데이트를 시작하지 못했어요.");
           if ((mandatory || optionalModalOpen) && status) status.textContent = text;
@@ -4578,6 +4579,47 @@
             window.autosnsUpdateRetryTimer = setTimeout(applyAppUpdate, retryDelay);
           }
         }
+      }
+      function compareAppVersions(left, right) {
+        const a = String(left || "0").split(".").map(part => Number.parseInt(part, 10) || 0);
+        const b = String(right || "0").split(".").map(part => Number.parseInt(part, 10) || 0);
+        for (let index = 0; index < Math.max(a.length, b.length); index++) {
+          if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) - (b[index] || 0);
+        }
+        return 0;
+      }
+      async function waitForInstalledUpdate(status, button, mandatory) {
+        const targetVersion = window.autosnsUpdate?.latest || "";
+        const deadline = Date.now() + 180_000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          try {
+            const response = await fetch("/api/app-version", {cache:"no-store", signal:AbortSignal.timeout(5000)});
+            if (!response.ok) continue;
+            const state = await response.json();
+            if (targetVersion && compareAppVersions(state.current, targetVersion) >= 0) {
+              if (status) status.textContent = `v${state.current} 업데이트가 확인됐어요. 화면을 새로 여는 중입니다.`;
+              window.location.reload();
+              return;
+            }
+          } catch (error) {
+            // The old local server exits while the installer replaces the app.
+            // Keep checking until the newly installed copy starts its server.
+          }
+        }
+        window.autosnsUpdateApplying = false;
+        if (status) status.textContent = "자동 설치 완료를 확인하지 못했어요. 설치 창을 확인하거나 설치 파일을 직접 실행해 주세요.";
+        if (button) {
+          button.disabled = false;
+          button.textContent = "설치 파일 받기";
+          button.onclick = downloadUpdateInstallerManually;
+        }
+        if (!mandatory) toast("업데이트 완료를 확인하지 못했어요. 설치 파일을 직접 실행해 주세요.");
+      }
+      function downloadUpdateInstallerManually() {
+        const installerUrl = window.autosnsUpdate?.url;
+        if (installerUrl) window.location.assign(installerUrl);
+        else if (window.autosnsUpdate?.release_url) window.open(window.autosnsUpdate.release_url, "_blank", "noopener");
       }
       function responseStatusIsConflict(error) { return error.status === 409; }
       function dismissOptionalUpdate() { document.querySelector("#optional-update-overlay").hidden = true; }

@@ -446,6 +446,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route == "/api/update-check":
             self._json(cloud.check_update()); return
+        if route == "/api/app-version":
+            self._json({"current": str(cloud.settings().get("app_version", "0.0.0"))}); return
         data = PAGE.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
@@ -469,8 +471,10 @@ class Handler(BaseHTTPRequestHandler):
                     if PUBLISHING_POSTS:
                         self._json({"error": "네이버 포스팅 작업을 마친 뒤 업데이트해 주세요."}, 409); return
                 installer = cloud.download_update_installer(update)
+                installer_log = installer.with_suffix(".install.log")
                 subprocess.Popen(
-                    [str(installer), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
+                    [str(installer), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
+                     f"/LOG={installer_log}"],
                     cwd=str(installer.parent),
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,

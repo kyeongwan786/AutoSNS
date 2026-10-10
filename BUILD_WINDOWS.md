@@ -21,10 +21,10 @@ Windows 10/11에서 Python 3.12를 설치하고 프로젝트 ZIP을 풉니다. `
 `build_windows.bat`은 `dist\AutoSNS.exe`를 만듭니다. 설치 파일을 로컬에서 만들려면 Inno Setup 6을 설치한 뒤 프로젝트 루트에서 아래 명령을 실행합니다.
 
 ```powershell
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=1.0.4" ".\installer\AutoSNS.iss"
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=1.0.5" ".\installer\AutoSNS.iss"
 ```
 
-`1.0.4`는 `cloud_settings.json`의 `app_version`과 같은 값으로 바꿉니다. 결과는 `dist\AutoSNS-Setup-1.0.4.exe`입니다. 설치는 관리자 권한 없이 사용자별 프로그램 폴더에 진행하고, 계정·설정·작업 기록은 기존처럼 `%APPDATA%\AutoSNS`에 남습니다.
+`1.0.5`는 `cloud_settings.json`의 `app_version`과 같은 값으로 바꿉니다. 결과는 `dist\AutoSNS-Setup-1.0.5.exe`입니다. 설치는 관리자 권한 없이 사용자별 프로그램 폴더에 진행하고, 계정·설정·작업 기록은 기존처럼 `%APPDATA%\AutoSNS`에 남습니다.
 
 ## 버전 업데이트 배포
 
