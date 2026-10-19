@@ -7,8 +7,8 @@ const cors = {
 };
 const MAX_BODY_BYTES = 1_000_000;
 const ALLOWED_MODELS: Record<string, Set<string>> = {
-  responses: new Set(["gpt-4.1"]),
-  "chat/completions": new Set(["gpt-4.1"]),
+  responses: new Set(["gpt-4.1", "gpt-4o-mini"]),
+  "chat/completions": new Set(["gpt-4.1", "gpt-4o-mini"]),
   "images/generations": new Set(["gpt-image-2"]),
 };
 

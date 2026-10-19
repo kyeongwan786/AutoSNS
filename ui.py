@@ -53,7 +53,7 @@ RUN_ACCOUNT_ID: str | None = None
 RUN_STOP_REQUESTED = False
 PUBLISH_LOCK = threading.Lock()
 PUBLISHING_POSTS: set[tuple[str, str]] = set()
-UI_API_VERSION = 28
+UI_API_VERSION = 53
 RUN_LOG_LOCK = threading.Lock()
 RUN_LOGS: deque[dict] = deque(maxlen=500)
 RUN_LOG_ID = 0
@@ -389,6 +389,27 @@ class Handler(BaseHTTPRequestHandler):
                 cookie_file = account_data_dir(account.get("id")) / "naver_cookies.json"
                 rows.append({**account, "connected": cookie_file.exists()})
             self._json({"accounts": rows}); return
+        if route == "/api/cafe/latest":
+            account_id = self._query_account_id()
+            if not account_id or not (account_data_dir(account_id) / "naver_cookies.json").exists():
+                self._json({"error": "먼저 네이버 계정을 연결하고 로그인해 주세요."}, 409); return
+            try:
+                from features.cafe_automation import latest_article
+                self._json(latest_article(account_id))
+            except Exception as e:
+                self._json({"error": str(e) or "끝말잇기 최신 글을 불러오지 못했어요."}, 502)
+            return
+        if route == "/api/cafe/logs":
+            account_id = self._query_account_id()
+            account = next((row for row in _load_accounts(self) if row.get("id") == account_id), None)
+            if not account:
+                self._json({"error": "카페 로그를 볼 계정을 선택해 주세요."}, 409); return
+            try:
+                from features.cafe_automation import read_cafe_log
+                self._json({"text": read_cafe_log(account_id)})
+            except Exception as e:
+                self._json({"error": str(e) or "카페 로그를 읽지 못했습니다."}, 500)
+            return
         if route == "/api/state":
             cfg = load_config(); cfg.get("comment", {})["api_key"] = ""
             account_id = self._query_account_id()
@@ -577,6 +598,64 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "로그인이 필요합니다."}, 401, headers={
                 "Set-Cookie": "autosns_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
             }); return
+        if self.path in {"/api/cafe/attendance", "/api/cafe/post-word", "/api/cafe/post-chain", "/api/cafe/run-daily"}:
+            account_id = ""
+            try:
+                body = self._body()
+                account_id = str(body.get("account_id", ""))
+                account = next((row for row in _load_accounts(self) if row.get("id") == account_id), None)
+                if not account or not (account_data_dir(account_id) / "naver_cookies.json").exists():
+                    self._json({"error": "먼저 네이버 계정을 연결하고 로그인해 주세요."}, 409); return
+                if self.path == "/api/cafe/run-daily":
+                    cfg = load_config()
+                    comment_cfg = cfg.get("comment", {})
+                    api_key = resolve_api_key(comment_cfg)
+                    session = _auth_session(self) if cloud.supabase_configured() else None
+                    access_token = str((session or {}).get("access_token", ""))
+                    if cloud.supabase_configured() and not access_token:
+                        self._json({"error": "AI 단어 생성을 위해 앱에서 다시 로그인해 주세요."}, 401); return
+                    if not cloud.supabase_configured() and not api_key:
+                        self._json({"error": "끝말잇기 단어 자동 생성을 위해 설정에서 OpenAI API 키를 먼저 등록해 주세요."}, 400); return
+                action_key = (account_id, "cafe")
+                with PUBLISH_LOCK:
+                    if action_key in PUBLISHING_POSTS:
+                        self._json({"error": "해당 계정의 카페 작업이 이미 실행 중이에요."}, 409); return
+                    PUBLISHING_POSTS.add(action_key)
+                try:
+                    if self.path == "/api/cafe/run-daily":
+                        from features.cafe_automation import run_daily
+                        cafe_model = "gpt-4o-mini" if cloud.supabase_configured() else str(comment_cfg.get("model", "gpt-4o-mini"))
+                        result = run_daily(
+                            account_id,
+                            str(body.get("message", "출석합니다.")),
+                            api_key,
+                            access_token or None,
+                            cafe_model,
+                        )
+                    else:
+                        from features.cafe_automation import attend, post_chain, post_word
+                        if self.path == "/api/cafe/attendance":
+                            result = attend(account_id, str(body.get("message", "출석합니다.")))
+                        elif self.path == "/api/cafe/post-chain":
+                            raw_words = body.get("words")
+                            if not isinstance(raw_words, list):
+                                raise ValueError("끝말잇기 단어 3개를 확인해 주세요.")
+                            result = post_chain(account_id, str(body.get("latest", "")), raw_words)
+                        else:
+                            result = post_word(account_id, str(body.get("title", "")))
+                    self._json(result)
+                finally:
+                    with PUBLISH_LOCK:
+                        PUBLISHING_POSTS.discard(action_key)
+            except Exception as e:
+                if account_id:
+                    try:
+                        from features.cafe_automation import log_cafe_event
+                        log_cafe_event(account_id, "api_request_failed", error=f"{type(e).__name__}: {e}")
+                    except Exception:
+                        pass
+                self._json({"error": str(e) or "네이버 카페 작업을 완료하지 못했어요."}, 502)
+            return
         if self.path == "/api/accounts":
             try:
                 body = self._body()
