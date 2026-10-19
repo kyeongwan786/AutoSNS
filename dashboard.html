@@ -4686,9 +4686,14 @@
         const button = document.querySelector(mandatory ? "#mandatory-update-button" : optionalModalOpen ? "#optional-update-button" : "#update-action");
         const status = document.querySelector(mandatory ? "#mandatory-update-status" : "#optional-update-status");
         window.autosnsUpdateApplying = true;
+        let previousInstance = null;
         if (button) { button.disabled = true;button.textContent = "설치 파일 확인 중…"; }
         if (status) status.textContent = "설치 파일을 내려받고 무결성을 확인하고 있어요.";
         try {
+          try {
+            const currentResponse = await fetch("/api/app-version", {cache:"no-store", signal:AbortSignal.timeout(5000)});
+            if (currentResponse.ok) previousInstance = (await currentResponse.json()).instance_id || null;
+          } catch (_) {}
           const response = await fetch("/api/apply-update", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({version:window.autosnsUpdate?.latest || ""}),signal:AbortSignal.timeout(180_000)});
           const result = await response.json().catch(() => ({}));
           if (!response.ok) {
@@ -4696,9 +4701,9 @@
             failure.status = response.status;
             throw failure;
           }
-          if (status) status.textContent = "설치를 시작했어요. 새 버전이 열리면 이 화면도 자동으로 전환됩니다.";
+          if (status) status.textContent = "설치 창을 열었어요. 설치가 끝나면 새 버전으로 자동 전환됩니다.";
           if (button) button.textContent = "설치 확인 중…";
-          await waitForInstalledUpdate(status, button, mandatory);
+          await waitForInstalledUpdate(status, button, mandatory, previousInstance);
         } catch (error) {
           const text = error.name === "TimeoutError" ? "다운로드 시간이 초과됐어요. 인터넷 연결을 확인하고 다시 시도해 주세요." : (error.message || "업데이트를 시작하지 못했어요.");
           if ((mandatory || optionalModalOpen) && status) status.textContent = text;
@@ -4721,9 +4726,10 @@
         }
         return 0;
       }
-      async function waitForInstalledUpdate(status, button, mandatory) {
+      async function waitForInstalledUpdate(status, button, mandatory, previousInstance = null) {
         const targetVersion = window.autosnsUpdate?.latest || "";
-        const deadline = Date.now() + 180_000;
+        const deadline = Date.now() + 480_000;
+        let polls = 0;
         while (Date.now() < deadline) {
           await new Promise(resolve => setTimeout(resolve, 2500));
           try {
@@ -4735,19 +4741,27 @@
               window.location.reload();
               return;
             }
+            if (previousInstance && state.instance_id && state.instance_id !== previousInstance) {
+              showUpdateManualFallback(status, button, `앱이 다시 열렸지만 v${state.current}입니다. 설치가 끝나지 않아 설치 파일을 직접 실행해야 합니다.`);
+              return;
+            }
           } catch (error) {
             // The old local server exits while the installer replaces the app.
             // Keep checking until the newly installed copy starts its server.
           }
+          polls += 1;
+          if (polls % 12 === 0 && status) status.textContent = "설치가 진행 중입니다. 설치가 끝나고 새 앱이 열릴 때까지 기다리고 있어요.";
         }
+        showUpdateManualFallback(status, button, "새 버전이 다시 열리는 것을 확인하지 못했어요. 설치 창을 확인하거나 설치 파일을 직접 실행해 주세요.");
+      }
+      function showUpdateManualFallback(status, button, message) {
         window.autosnsUpdateApplying = false;
-        if (status) status.textContent = "자동 설치 완료를 확인하지 못했어요. 설치 창을 확인하거나 설치 파일을 직접 실행해 주세요.";
+        if (status) status.textContent = message;
         if (button) {
           button.disabled = false;
           button.textContent = "설치 파일 받기";
           button.onclick = downloadUpdateInstallerManually;
         }
-        if (!mandatory) toast("업데이트 완료를 확인하지 못했어요. 설치 파일을 직접 실행해 주세요.");
       }
       function downloadUpdateInstallerManually() {
         const installerUrl = window.autosnsUpdate?.url;

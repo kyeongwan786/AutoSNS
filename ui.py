@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import signal
+import shutil
 import subprocess
 import sys
 import threading
@@ -53,10 +54,45 @@ RUN_ACCOUNT_ID: str | None = None
 RUN_STOP_REQUESTED = False
 PUBLISH_LOCK = threading.Lock()
 PUBLISHING_POSTS: set[tuple[str, str]] = set()
-UI_API_VERSION = 54
+UI_API_VERSION = 55
 RUN_LOG_LOCK = threading.Lock()
 RUN_LOGS: deque[dict] = deque(maxlen=500)
 RUN_LOG_ID = 0
+
+
+def _ps_quote(value: str | Path) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _windows_update_runner_script(installer: Path, installer_log: Path,
+                                  executable: Path, old_pid: int) -> str:
+    """Wait for this app to exit, install visibly, and ensure the new app starts."""
+    installer_name = executable.stem
+    return f"""$ErrorActionPreference = 'Stop'
+$installerPath = {_ps_quote(installer)}
+$installerLog = {_ps_quote(installer_log)}
+$targetPath = {_ps_quote(executable)}
+$oldProcessId = {int(old_pid)}
+$processName = {_ps_quote(installer_name)}
+$runnerLog = {_ps_quote(installer_log.with_suffix('.runner.log'))}
+try {{
+  while (Get-Process -Id $oldProcessId -ErrorAction SilentlyContinue) {{ Start-Sleep -Milliseconds 500 }}
+  $arguments = @('/SILENT', '/NORESTART', '/SP-', ('/LOG="' + $installerLog + '"'))
+  $setup = Start-Process -FilePath $installerPath -ArgumentList $arguments -PassThru -Wait
+  if ($setup.ExitCode -ne 0) {{ throw "Installer exited with code $($setup.ExitCode)." }}
+  $launchDeadline = (Get-Date).AddSeconds(20)
+  while ((Get-Date) -lt $launchDeadline) {{
+    if (Get-Process -Name $processName -ErrorAction SilentlyContinue) {{ exit 0 }}
+    Start-Sleep -Seconds 1
+  }}
+  Start-Process -FilePath $targetPath -WorkingDirectory (Split-Path -Parent $targetPath)
+}} catch {{
+  Add-Content -LiteralPath $runnerLog -Value ("$(Get-Date -Format o) " + $_.Exception.Message)
+  if (Test-Path -LiteralPath $targetPath) {{
+    Start-Process -FilePath $targetPath -WorkingDirectory (Split-Path -Parent $targetPath)
+  }}
+}}
+"""
 
 
 def _append_run_log(message: str) -> None:
@@ -468,7 +504,8 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/api/update-check":
             self._json(cloud.check_update()); return
         if route == "/api/app-version":
-            self._json({"current": str(cloud.settings().get("app_version", "0.0.0"))}); return
+            self._json({"current": str(cloud.settings().get("app_version", "0.0.0")),
+                        "instance_id": os.getpid()}); return
         data = PAGE.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
@@ -493,9 +530,15 @@ class Handler(BaseHTTPRequestHandler):
                         self._json({"error": "네이버 포스팅 작업을 마친 뒤 업데이트해 주세요."}, 409); return
                 installer = cloud.download_update_installer(update)
                 installer_log = installer.with_suffix(".install.log")
+                runner_script = installer.with_suffix(".update.ps1")
+                runner_script.write_text(
+                    _windows_update_runner_script(installer, installer_log, Path(sys.executable), os.getpid()),
+                    encoding="utf-8-sig",
+                )
+                powershell = shutil.which("powershell.exe") or "powershell.exe"
                 subprocess.Popen(
-                    [str(installer), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
-                     f"/LOG={installer_log}"],
+                    [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+                     "-File", str(runner_script)],
                     cwd=str(installer.parent),
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
@@ -504,9 +547,9 @@ class Handler(BaseHTTPRequestHandler):
                                    | getattr(subprocess, "DETACHED_PROCESS", 0)),
                 )
                 self._json({"ok": True, "installing": True})
-                # Release the executable before Inno Setup replaces it and
-                # starts the newly installed copy. The installer remains open
-                # if the user cancels; they can reopen the current version.
+                # A detached PowerShell runner waits for this process, shows the
+                # installer, and starts the installed app if Inno Setup's own
+                # post-install launch did not happen.
                 threading.Timer(1.5, os._exit, args=(0,)).start()
             except Exception as exc:
                 self._json({"error": str(exc) or "업데이트 설치를 시작하지 못했어요."}, 502)
