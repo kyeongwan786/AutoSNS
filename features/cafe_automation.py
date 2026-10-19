@@ -80,7 +80,9 @@ def _log(event: str, **details) -> None:
 async def _open_page(account_id: str):
     from features.blog_publisher import _open_publish_browser
 
-    general = {**load_config().get("general", {}), "show_browser": True}
+    # Match the blog account flow: login/challenge windows are visible, then
+    # the actual Cafe actions reuse the saved session in headless mode.
+    general = {**load_config().get("general", {}), "show_browser": False}
     credentials = load_naver_credentials(account_id)
     playwright = await async_playwright().start()
     try:

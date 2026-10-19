@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
-from features.cafe_automation import _generate_chain, _latest_article, _post_chain, _post_word, _run, log_cafe_event, read_cafe_log
+from features.cafe_automation import _generate_chain, _latest_article, _open_page, _post_chain, _post_word, _run, log_cafe_event, read_cafe_log
 
 
 class FakeControl:
@@ -197,6 +197,19 @@ class FakePage:
 
 
 class CafePostingFlowTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cafe_work_reuses_blog_login_flow_and_runs_headless(self):
+        playwright = object()
+        page = object()
+        starter = SimpleNamespace(start=AsyncMock(return_value=playwright))
+        with patch("features.cafe_automation.async_playwright", return_value=starter), \
+             patch("features.cafe_automation.load_config", return_value={"general": {"browser_mode": "cdp", "show_browser": True}}), \
+             patch("features.cafe_automation.load_naver_credentials", return_value=None), \
+             patch("features.blog_publisher._open_publish_browser", new=AsyncMock(return_value=(object(), page))) as open_browser:
+            result = await _open_page("a" * 32)
+
+        self.assertEqual(result, (playwright, page))
+        self.assertFalse(open_browser.await_args.args[1]["show_browser"])
+
     async def test_invalid_model_chain_uses_curated_fallback(self):
         response = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="소금, 바다, 속옷"))])
         client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=Mock(return_value=response))))

@@ -1541,31 +1541,44 @@
         color: #078e50;
       }
       .nav button[data-view="cafe"].sel { background:#fff3e6;color:#c76a12; }
-      #cafe-page { grid-column:2;display:none;padding:28px 24px;max-width:1240px;width:100%;margin:0 auto; }
-      .cafe-head { display:flex;align-items:center;gap:14px;margin-bottom:22px; }
-      .cafe-head-mark { width:52px;height:52px;border-radius:17px;background:#fff3e6;display:grid;place-items:center;font-size:27px; }
-      .cafe-head h1 { margin:0;font-size:27px; }.cafe-head p { margin:5px 0 0;color:#77839a; }
-      .cafe-grid { display:grid;grid-template-columns:minmax(250px,.75fr) minmax(0,1.5fr);gap:18px; }
-      .cafe-card { background:#fff;border:1px solid #e7ecf3;border-radius:18px;padding:22px;box-shadow:0 8px 24px #26354a0a; }
-      .cafe-card h2 { margin:0 0 8px;font-size:18px; }.cafe-card p { color:#748099;line-height:1.6; }
-      .cafe-daily-card { display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap; }
-      .cafe-daily-card > div { flex:1 1 360px; }.cafe-daily-card > p { flex-basis:100%;margin:0; }
+      #cafe-page { grid-column:2;display:none;min-width:0;width:100%;margin:0 auto;padding:30px 24px 32px;background:linear-gradient(135deg,#f7f9fd,#f2f6fc); }
+      .cafe-shell { width:100%;max-width:1600px;margin:0 auto; }
+      .cafe-head { display:flex;align-items:center;gap:16px;margin:0 0 20px; }
+      .cafe-head-mark { display:grid;place-items:center;flex:0 0 64px;width:64px;height:64px;border-radius:16px;background:linear-gradient(145deg,#fff3e6,#ffe3c4);font-size:34px;box-shadow:0 8px 22px #c76a1218; }
+      .cafe-heading { flex:1;min-width:0; }.cafe-heading h1 { margin:0 0 3px;color:#1e3156;font-size:32px;letter-spacing:-1px; }.cafe-heading p { margin:0;color:#7183a5;font-size:13px;line-height:1.55; }
+      .cafe-account-bar { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;background:#fff;border:1px solid #e6edf5;border-radius:15px;box-shadow:0 5px 20px #38588708; }
+      .cafe-account-mark { display:grid;place-items:center;flex:0 0 34px;height:34px;border-radius:10px;background:#fff4e8;color:#bf681b;font-size:17px; }
+      .cafe-account-bar label { color:#536582;font-size:12px;font-weight:750; }
+      .cafe-account-bar select { min-width:210px;height:40px;padding:0 12px;border:1px solid #dce6f2;border-radius:10px;background:#fff;color:#26395f;font:inherit;font-size:12px; }
+      .cafe-layout { display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.8fr);gap:14px;align-items:stretch; }
+      .cafe-card { min-width:0;padding:20px;border:1px solid #e6edf5;border-radius:16px;background:#fff;box-shadow:0 7px 24px #3858870a; }
+      .cafe-card h2 { margin:0;color:#26395f;font-size:17px;letter-spacing:-.3px; }.cafe-card p { color:#7183a5;font-size:12px;line-height:1.65; }
+      .cafe-daily-card { display:flex;flex-direction:column;justify-content:space-between;gap:18px; }
+      .cafe-eyebrow { display:flex;align-items:center;gap:7px;margin-bottom:9px;color:#c76a12;font-size:10px;font-weight:850;letter-spacing:.09em; }
+      .cafe-eyebrow i { width:7px;height:7px;border-radius:50%;background:#f29a45;box-shadow:0 0 0 4px #fff2e6; }
+      .cafe-daily-card h2 { font-size:20px; }.cafe-daily-card .cafe-intro { margin:7px 0 0; }
       .cafe-primary:disabled { opacity:.65;cursor:wait; }
-      .cafe-primary { border:0;border-radius:11px;background:#03c75a;color:#fff;padding:12px 16px;font-weight:750;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center; }
-      .cafe-secondary { border:1px solid #dce4ed;border-radius:10px;background:#fff;color:#37445b;padding:10px 13px;font-weight:700;cursor:pointer; }
-      .cafe-field { display:block;margin:14px 0 6px;color:#4c5870;font-size:13px;font-weight:700; }
-      .cafe-input { width:100%;height:44px;border:1px solid #dce4ed;border-radius:10px;padding:0 12px;font:inherit; }
-      .cafe-words { display:grid;gap:10px;margin:17px 0; }.cafe-word-row { display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:9px;align-items:center; }
-      .cafe-step { width:28px;height:28px;border-radius:50%;background:#eff8f2;color:#169653;display:grid;place-items:center;font-weight:800;font-size:13px; }
-      .cafe-note { font-size:12px;color:#8791a3!important;margin:10px 0 0; }
-      .cafe-log-details { flex-basis:100%;border-top:1px solid #edf0f5;padding-top:12px; }
-      .cafe-log-details summary { color:#46536a;font-size:13px;font-weight:700;cursor:pointer; }
-      .cafe-log-actions { display:flex;gap:8px;margin:10px 0; }
-      .cafe-log-output { box-sizing:border-box;width:100%;min-height:180px;border:1px solid #dce4ed;border-radius:9px;padding:10px;background:#f8fafc;color:#344054;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical; }
-      .cafe-account-bar { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 18px;padding:13px 16px;background:#fff;border:1px solid #e7ecf3;border-radius:15px; }
-      .cafe-account-bar label { font-size:13px;font-weight:750;color:#46536a; }
-      .cafe-account-bar select { min-width:190px;height:40px;border:1px solid #dce4ed;border-radius:9px;padding:0 10px;background:#fff;font:inherit; }
-      @media(max-width:850px){#cafe-page{grid-column:auto;padding:18px 14px}.cafe-grid{grid-template-columns:1fr}}
+      .cafe-primary { min-height:46px;width:100%;border:0;border-radius:11px;background:linear-gradient(135deg,#12b76a,#03a955);color:#fff;padding:0 16px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 7px 16px #12b76a2b;transition:transform .15s,box-shadow .15s; }
+      .cafe-primary:hover:not(:disabled) { transform:translateY(-1px);box-shadow:0 10px 20px #12b76a38; }
+      .cafe-secondary { min-height:38px;border:1px solid #dce6f1;border-radius:9px;background:#fff;color:#344765;padding:0 12px;font:inherit;font-size:11px;font-weight:750;cursor:pointer; }
+      .cafe-secondary:hover { border-color:#b8d9c6;background:#f8fcf9; }
+      .cafe-note { color:#8795a9!important;font-size:11px!important;line-height:1.55!important;margin:0; }
+      .cafe-account-bar .cafe-note { flex:1 1 190px; }
+      .cafe-run-status { display:flex;align-items:flex-start;gap:9px;min-height:40px;padding:10px 11px;border:1px solid #e9eef5;border-radius:10px;background:#f8fafc; }
+      .cafe-status-dot { flex:0 0 8px;height:8px;margin-top:4px;border-radius:50%;background:#b9c4d3; }.cafe-run-status[data-running="true"] .cafe-status-dot { background:#12b76a;box-shadow:0 0 0 4px #e5f8ed;animation:cafe-pulse 1.3s infinite; }
+      @keyframes cafe-pulse { 50% { box-shadow:0 0 0 7px #e5f8ed; } }
+      .cafe-run-status span:last-child { color:#536582;font-size:11px;line-height:1.55; }
+      .cafe-flow-card { display:flex;flex-direction:column;justify-content:center; }
+      .cafe-flow-card h2 { margin-bottom:14px; }
+      .cafe-flow-step { display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;padding:12px 0;border-top:1px solid #edf1f6; }
+      .cafe-flow-number { display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#fff4e8;color:#c76a12;font-size:11px;font-weight:850; }
+      .cafe-flow-copy strong { display:block;color:#344765;font-size:12px; }.cafe-flow-copy small { display:block;margin-top:4px;color:#8795a9;font-size:10px;line-height:1.5; }
+      .cafe-log-card { margin-top:14px; }.cafe-log-details { width:100%; }.cafe-log-details summary { display:flex;align-items:center;gap:9px;color:#344765;font-size:12px;font-weight:800;cursor:pointer;list-style:none; }.cafe-log-details summary::-webkit-details-marker { display:none; }
+      .cafe-log-details summary::before { content:"＋";display:grid;place-items:center;width:23px;height:23px;border-radius:7px;background:#f2f6fb;color:#7183a5;font-size:13px; }.cafe-log-details[open] summary::before { content:"−"; }
+      .cafe-log-actions { display:flex;gap:8px;margin:12px 0 9px; }
+      .cafe-log-output { box-sizing:border-box;width:100%;min-height:150px;border:1px solid #dce6f1;border-radius:10px;padding:11px;background:#f8fafc;color:#344054;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical; }
+      @media(max-width:850px){#cafe-page{grid-column:auto;padding:20px 14px}.cafe-layout{grid-template-columns:1fr}.cafe-flow-card{min-height:0}}
+      @media(max-width:560px){.cafe-head-mark{flex-basis:52px;width:52px;height:52px;font-size:28px}.cafe-heading h1{font-size:25px}.cafe-account-bar select{flex:1;min-width:150px}.cafe-account-bar .cafe-secondary{width:100%}.cafe-card{padding:16px}}
       .connection-page { grid-column:2; padding:32px 22px; max-width:1100px; width:100%; margin:auto; }
       .connection-head { display:flex; align-items:center; gap:16px; margin:8px 0 28px; }
       .connection-head h1 { margin:0; font-size:28px; }
@@ -2461,14 +2474,19 @@
         </section>
       </main>
       <main id="cafe-page">
-        <header class="cafe-head"><div class="cafe-head-mark" aria-hidden="true">☕</div><div><h1>네이버 카페</h1><p>인생네폰 카페 출석 도장과 끝말잇기를 준비해요.</p></div></header>
-        <section class="cafe-account-bar"><label for="cafe-account-select">사용할 네이버 계정</label><select id="cafe-account-select" onchange="selectCafeAccount(this.value)"><option value="">계정을 불러오는 중…</option></select><button type="button" class="cafe-secondary" onclick="openBlogAccountModal('cafe')">＋ 네이버 계정 추가</button><span id="cafe-account-status" class="cafe-note" role="status" aria-live="polite"></span></section>
-        <section class="cafe-card cafe-daily-card">
-          <div><h2>오늘의 카페 작업</h2><p>한 번 실행하면 네이버 로그인을 확인하고, 출석체크 후 최신 끝말잇기 글에 이어 단어 3개를 자동으로 등록합니다.</p></div>
-          <button type="button" class="cafe-primary" id="cafe-daily-button" onclick="startCafeDaily()">출석체크 + 끝말잇기 시작</button>
-          <p class="cafe-note" id="cafe-daily-status" role="status" aria-live="polite">네이버 계정을 선택해 두면 한 번에 실행할 수 있어요.</p>
-          <details class="cafe-log-details" id="cafe-log-details"><summary>카페 실행 로그</summary><div class="cafe-log-actions"><button type="button" class="cafe-secondary" onclick="refreshCafeLogs()">로그 새로고침</button><button type="button" class="cafe-secondary" onclick="copyCafeLogs()">로그 복사</button></div><textarea id="cafe-log-output" class="cafe-log-output" readonly placeholder="실패하면 이곳에 단계별 로그가 표시됩니다."></textarea></details>
-        </section>
+        <div class="cafe-shell">
+          <header class="cafe-head"><div class="cafe-head-mark" aria-hidden="true">☕</div><div class="cafe-heading"><h1>네이버 카페</h1><p>출석체크와 끝말잇기를 한 번의 실행으로 이어서 처리합니다.</p></div></header>
+          <section class="cafe-account-bar"><span class="cafe-account-mark" aria-hidden="true">N</span><label for="cafe-account-select">사용할 네이버 계정</label><select id="cafe-account-select" onchange="selectCafeAccount(this.value)"><option value="">계정을 불러오는 중…</option></select><button type="button" class="cafe-secondary" onclick="openBlogAccountModal('cafe')">＋ 계정 추가</button><span id="cafe-account-status" class="cafe-note" role="status" aria-live="polite"></span></section>
+          <div class="cafe-layout">
+            <section class="cafe-card cafe-daily-card">
+              <div><div class="cafe-eyebrow"><i></i> 오늘의 자동 작업</div><h2>카페 루틴을 시작할까요?</h2><p class="cafe-intro">네이버 로그인을 확인하고 출석 도장을 남긴 다음, 최신 끝말잇기 글에 이어 단어 3개를 등록합니다.</p></div>
+              <button type="button" class="cafe-primary" id="cafe-daily-button" onclick="startCafeDaily()">출석체크 + 끝말잇기 시작</button>
+              <div class="cafe-run-status" id="cafe-run-status" data-running="false"><i class="cafe-status-dot" aria-hidden="true"></i><span id="cafe-daily-status" role="status" aria-live="polite">계정을 선택하고 시작 버튼을 누르면 자동으로 진행합니다. 로그인이 필요할 때만 크롬 창이 열립니다.</span></div>
+            </section>
+            <section class="cafe-card cafe-flow-card"><h2>진행 순서</h2><div class="cafe-flow-step"><span class="cafe-flow-number">01</span><div class="cafe-flow-copy"><strong>출석 도장</strong><small>오늘 출석했는지 확인하고, 아직이면 자동으로 체크합니다.</small></div></div><div class="cafe-flow-step"><span class="cafe-flow-number">02</span><div class="cafe-flow-copy"><strong>끝말잇기 3개</strong><small>게시판의 최신 단어를 읽어 이어지는 글을 차례대로 올립니다.</small></div></div></section>
+          </div>
+          <section class="cafe-card cafe-log-card"><details class="cafe-log-details" id="cafe-log-details"><summary>실행 기록 및 문제 확인</summary><div class="cafe-log-actions"><button type="button" class="cafe-secondary" onclick="refreshCafeLogs()">로그 새로고침</button><button type="button" class="cafe-secondary" onclick="copyCafeLogs()">로그 복사</button></div><textarea id="cafe-log-output" class="cafe-log-output" readonly placeholder="실패하면 단계별 진행 기록이 표시됩니다."></textarea></details></section>
+        </div>
       </main>
     </div>
     <div class="modal-backdrop" id="blog-account-modal" onclick="if(event.target===this)closeBlogAccountModal()">
@@ -2687,7 +2705,9 @@
         if (!accountId) { toast("카페 화면에서 사용할 네이버 계정을 선택하거나 추가해 주세요.");return; }
         const status = document.querySelector("#cafe-daily-status");
         const button = document.querySelector("#cafe-daily-button");
+        const runStatus = document.querySelector("#cafe-run-status");
         button.disabled = true;
+        runStatus.dataset.running = "true";
         status.textContent = "네이버 로그인과 카페 작업을 준비하고 있어요…";
         try {
           await ensureNaverSessionForPublishing(accountId, message => { status.textContent = message; });
@@ -2704,6 +2724,7 @@
           await refreshCafeLogs(accountId);
         } finally {
           button.disabled = false;
+          runStatus.dataset.running = "false";
         }
       }
       async function refreshCafeLogs(accountId = "") {
